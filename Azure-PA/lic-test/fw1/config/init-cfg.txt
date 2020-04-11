@@ -1,0 +1,6 @@
+type=dhcp-client
+vm-auth-key=712152920420294
+panorama-server=10.254.254.5
+tplname=template_name
+dgname=dg_name
+dns-primary=8.8.8.8

@@ -1,0 +1,648 @@
+{
+    "@status": "success",
+    "@code": "19",
+    "result": {
+        "@total-count": "12",
+        "@count": "12",
+        "entry": [
+            {
+                "@name": "Geo Block",
+                "@uuid": "75ce8569-98a9-467f-b5ea-944e5fcb5e33",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "US",
+                        "ViptelaTransit"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "drop",
+                "negate-source": "yes",
+                "disabled": "no"
+            },
+            {
+                "@name": "MacMini",
+                "@uuid": "f12f040a-e1eb-4aaf-ad4e-f1fbb32a2c76",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "my-dns"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "TCP-8031"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "gVPN",
+                "@uuid": "1cf70925-a67b-4374-8778-24c837611ac8",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "gVPN"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "known-user"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "gVPN-fulltunnel",
+                "@uuid": "2c484ee8-9eb9-4e55-8a6c-beecb2aca67f",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "gVPN"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "known-user"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "Allow gutil1 SMTP Out",
+                "@uuid": "a1668da4-0f47-4d5e-aabf-d66f56081ee6",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "192.168.77.14"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "smtp"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "smtp"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow",
+                "disabled": "yes"
+            },
+            {
+                "@name": "Block SMTP Out",
+                "@uuid": "f1b063be-dd42-4291-a2e4-b24352021228",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "smtp"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "deny",
+                "disabled": "no"
+            },
+            {
+                "@name": "From DMZ Deny ICMP Echo",
+                "@uuid": "1146a3fd-2a61-4305-9d07-804d4bb12d72",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "dmz"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "icmp-echo"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "application-default"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "deny"
+            },
+            {
+                "@name": "From DMZ Allow ICMP Reply",
+                "@uuid": "28a813f9-0230-44ec-bf0b-3d5f64720646",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "dmz"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "icmp-reply"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "application-default"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "To DMZ Allow",
+                "@uuid": "8eecae24-fb5e-4c90-ab64-307496ba53ea",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "dmz"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "application-default"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "Allow all outbound",
+                "@uuid": "a2723344-a619-4bcd-bac6-9fdeec54d993",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "untrusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow",
+                "log-start": "no",
+                "profile-setting": {
+                    "group": {
+                        "member": [
+                            "gSecurityProfileGroup"
+                        ]
+                    }
+                },
+                "log-end": "yes"
+            },
+            {
+                "@name": "Azure-VPN",
+                "@uuid": "cf63ec13-2723-4e14-8e8c-ddde0e92156b",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "L2L-VPN"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            },
+            {
+                "@name": "Azure-VPN-Reverse",
+                "@uuid": "e3c37aee-3ead-40b0-afbc-58cd2dfb5067",
+                "@location": "vsys",
+                "@vsys": "vsys1",
+                "to": {
+                    "member": [
+                        "trusted"
+                    ]
+                },
+                "from": {
+                    "member": [
+                        "L2L-VPN"
+                    ]
+                },
+                "source": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "destination": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "source-user": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "category": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "application": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "service": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "hip-profiles": {
+                    "member": [
+                        "any"
+                    ]
+                },
+                "action": "allow"
+            }
+        ]
+    }
+}
