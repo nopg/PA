@@ -1,5 +1,5 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "resourceLocation": {
@@ -8,11 +8,11 @@
                 "centralus",
                 "eastus",
                 "eastus2",
-                "westus",
-                "westus2",
                 "northcentralus",
                 "southcentralus",
-                "westcentralus"
+                "westcentralus",
+                "westus",
+                "westus2"
             ],
             "metadata": {
                 "description": "Region to be used for all resources"
@@ -22,7 +22,8 @@
             "type": "string",
             "metadata": {
                 "description": "Virtual Network Name"
-            }
+            },
+            "defaultValue": "virtual-network-name"
         },
         "vNetCIDR": {
             "type": "string",
@@ -48,7 +49,7 @@
                 "description": "Private Address Prefix"
             }
         },
-        "paloVM1Name": {
+        "paloVMName": {
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
@@ -108,19 +109,19 @@
             },
             "defaultValue": "byol"
         },
-        "fw1ManagementPrivateIPAddress": {
+        "fwManagementPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Management Static IP Address for PA"
             }
         },
-        "fw1PublicPrivateIPAddress": {
+        "fwPublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Public Subnet (private IP) Static IP Address for PA"
             }
         },
-        "fw1PrivateIPAddress": {
+        "fwPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Private Static IP Address for PA"
@@ -134,11 +135,11 @@
         }
     },
     "variables": {
-        "fw1ManagementPublicIPName": "[concat(parameters('paloVM1Name'),'-mgmt-ip')]",
-        "fw1UntrustPublicIPName": "[concat(parameters('paloVM1Name'),'-untrust-ip')]",
+        "fwManagementPublicIPName": "[concat(parameters('paloVMName'),'-mgmt-ip')]",
+        "fwUntrustPublicIPName": "[concat(parameters('paloVMName'),'-untrust-ip')]",
         "imagePublisher": "paloaltonetworks",
         "imageOffer": "vmseries1",
-        "fw1NicName": "[concat(parameters('paloVM1Name'), '-eth')]"
+        "fwNicName": "[concat(parameters('paloVMName'), '-eth')]"
     },
     "resources": [
          {
@@ -232,7 +233,7 @@
             }
         },
         {
-            "name": "[variables('fw1ManagementPublicIPName')]",
+            "name": "[variables('fwManagementPublicIPName')]",
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2017-10-01",
             "location": "[parameters('resourceLocation')]",
@@ -245,7 +246,7 @@
             }
         },
         {
-            "name": "[variables('fw1UntrustPublicIPName')]",
+            "name": "[variables('fwUntrustPublicIPName')]",
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2017-10-01",
             "location": "[parameters('resourceLocation')]",
@@ -269,7 +270,7 @@
                         "properties": {
                             "addressPrefix": "0.0.0.0/0",
                             "nextHopType": "VirtualAppliance",
-                            "nextHopIpAddress": "[parameters('fw1PrivateIPAddress')]"
+                            "nextHopIpAddress": "[parameters('fwPrivateIPAddress')]"
                         }
                     },
                     {
@@ -386,12 +387,12 @@
             }
         },
         {
-            "name": "[concat(variables('fw1NicName'), '0')]",
+            "name": "[concat(variables('fwNicName'), '0')]",
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', variables('fw1ManagementPublicIPName'))]",
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('fwManagementPublicIPName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
             ],
             "properties": {
@@ -400,9 +401,9 @@
                         "name": "ipconfig-mgmt",
                         "properties": {
                             "privateIPAllocationMethod": "Static",
-                            "privateIPAddress": "[parameters('fw1ManagementPrivateIPAddress')]",
+                            "privateIPAddress": "[parameters('fwManagementPrivateIPAddress')]",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fw1ManagementPublicIPName'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwManagementPublicIPName'))]"
                             },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'), 'Management')]"
@@ -413,11 +414,11 @@
             }
         },
         {
-            "name": "[concat(variables('fw1NicName'), '1')]",
+            "name": "[concat(variables('fwNicName'), '1')]",
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', variables('fw1UntrustPublicIPName'))]",
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('fwUntrustPublicIPName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
             ],
             "apiVersion": "2015-06-15",
@@ -428,9 +429,9 @@
                         "name": "ipconfig-public",
                         "properties": {
                             "privateIPAllocationMethod": "Static",
-                            "privateIPAddress": "[parameters('fw1PublicPrivateIPAddress')]",
+                            "privateIPAddress": "[parameters('fwPublicPrivateIPAddress')]",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fw1UntrustPublicIPName'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwUntrustPublicIPName'))]"
                             },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'),'Public')]"
@@ -441,7 +442,7 @@
             }
         },
         {
-            "name": "[concat(variables('fw1NicName'), '2')]",
+            "name": "[concat(variables('fwNicName'), '2')]",
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
@@ -455,7 +456,7 @@
                         "name": "ipconfig-private",
                         "properties": {
                             "privateIPAllocationMethod": "Static",
-                            "privateIPAddress": "[parameters('fw1PrivateIPAddress')]",
+                            "privateIPAddress": "[parameters('fwPrivateIPAddress')]",
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'), 'Private')]"
                             }
@@ -467,12 +468,12 @@
         {
             "apiVersion": "2018-10-01",
             "type": "Microsoft.Compute/virtualMachines",
-            "name": "[parameters('paloVM1Name')]",
+            "name": "[parameters('paloVMName')]",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-                "[concat('Microsoft.Network/networkInterfaces/', variables('fw1NicName'), '0')]",
-                "[concat('Microsoft.Network/networkInterfaces/', variables('fw1NicName'), '1')]",
-                "[concat('Microsoft.Network/networkInterfaces/', variables('fw1NicName'), '2')]"
+                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '0')]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '1')]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '2')]"
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
@@ -484,7 +485,7 @@
                     "vmSize": "[parameters('vmSize')]"
                 },
                 "osProfile": {
-                    "computerName": "[parameters('paloVM1Name')]",
+                    "computerName": "[parameters('paloVMName')]",
                     "adminUsername": "[parameters('adminUsername')]",
                     "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -502,19 +503,19 @@
                 "networkProfile": {
                     "networkInterfaces": [
                         {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fw1NicName'),'0'))]",
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fwNicName'),'0'))]",
                             "properties": {
                                 "primary": true
                             }
                         },
                         {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fw1NicName'),'1'))]",
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fwNicName'),'1'))]",
                             "properties": {
                                 "primary": false
                             }
                         },
                         {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fw1NicName'),'2'))]",
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('fwNicName'),'2'))]",
                             "properties": {
                                 "primary": false
                             }
