@@ -2,3 +2,4 @@
 .DS_Store
 *.parameters.json
 env-*/
+becu/examples/
