@@ -45,7 +45,7 @@
         "paloVMName": {
             "type": "string",
             "metadata": {
-                "description": "Name of first firewall"
+                "description": "Name of firewall"
             }
         },
         "adminUsername": {
@@ -105,19 +105,19 @@
         "fwManagementPrivateIPAddress": {
             "type": "string",
             "metadata": {
-                "description": "Management subnet static address for firewall"
+                "description": "Management Static IP Address for PA"
             }
         },
         "fwPublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
-                "description": "Management subnet static address for firewall"
+                "description": "Public Subnet (private IP) Static IP Address for PA"
             }
         },
         "fwPrivateIPAddress": {
             "type": "string",
             "metadata": {
-                "description": "Management subnet static address for firewall"
+                "description": "Private Static IP Address for PA"
             }
         }
     },
