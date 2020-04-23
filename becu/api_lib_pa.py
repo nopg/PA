@@ -5,7 +5,8 @@ Description:
 Requires:
     requests
     xmltodict
-        to install try: pip3 install xmltodict requests 
+    json
+        to install try: pip3 install xmltodict requests json
 
 Author:
     Ryan Gillespie rgillespie@compunet.biz
@@ -42,6 +43,8 @@ import sys
 import os
 import json
 import xmltodict
+import xml.dom.minidom
+from datetime import datetime
 
 # Who cares about SSL?
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -95,30 +98,52 @@ class api_lib_pa:
 
         # Pull folder name from string
         end = filename.rfind("/")
-        folder = filename[0:end]
+        if end != -1:
+            folder = filename[-1:end]
+
+        # timestamp = "/" + \
+        # str(datetime.now().year) + '-' + \
+        # str(datetime.now().month) + '-' + \
+        # str(datetime.now().day) + '--' + \
+        # str(datetime.now().hour) + '-' + \
+        # str(datetime.now().minute) + '/'
+
+            filename = folder + timestamp + filename[end:]
 
         # Create the root folder and subfolder if it doesn't already exist
-        os.makedirs(folder, exist_ok=True)
+            os.makedirs(folder + timestamp, exist_ok=True)
+
 
         # Because XML: remove <response/><result/> and <?xml> tags
         # Using get().get() won't cause exception on KeyError
         # Check for various response type and ensure xml is written consistently
-        data = temp.get("response")
-        if data:
-            # data = temp.get("response").get("result")
+
+        #Set data
+        if not isinstance(temp,list):
+            data = temp.get("response")
             data = {"response": data}
+
             if data:
-                data = xmltodict.unparse(data)
+                # data = temp.get("response").get("result")
+                if data:
+                    data = xmltodict.unparse(data)
+                else:
+                    data = xmltodict.unparse(temp)
             else:
                 data = xmltodict.unparse(temp)
+            data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+
+            prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
+
+            with open(filename, "w") as fout:
+                fout.write(prettyxml)
         else:
-            data = xmltodict.unparse(temp)
-        data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+            data = temp
+            with open(filename, "w") as fout:
+                fout.write("\n".join(data))
 
-        with open(filename, "w") as fout:
-            fout.write(data)
 
-    def create_json_files(self, data, filename):
+    def create_json_files(self, temp, filename):
         """
         CREATE OUTPUT FILES 
 
@@ -130,9 +155,19 @@ class api_lib_pa:
         end = filename.rfind("/")
         folder = filename[0:end]
 
-        # Create the root folder and subfolder if it doesn't already exist
-        os.makedirs(folder, exist_ok=True)
+        timestamp = "/" + \
+        str(datetime.now().year) + '-' + \
+        str(datetime.now().month) + '-' + \
+        str(datetime.now().day) + '--' + \
+        str(datetime.now().hour) + '-' + \
+        str(datetime.now().minute) + '/'
 
+        filename = folder + timestamp + filename[end:]
+
+        # Create the root folder and subfolder if it doesn't already exist
+        os.makedirs(folder + timestamp, exist_ok=True)
+
+        data = json.dumps(temp, indent=4, sort_keys=True)
         # Write Data
         fout = open(filename, "w")
         fout.write(data)
@@ -204,14 +239,12 @@ class api_lib_pa:
                 success = True
 
             if filename:
-                filename = f"{filename}"
                 self.create_xml_files(xml_response, filename)
 
-            if not xml_response["response"]["result"]:
-                print(
-                    "Nothing found on PA/Panorama, are you connecting to the right device? Check output for XML API reply"
-                )
-                sys.exit(0)
+            # if not xml_response["response"]["result"]:
+            #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
+            #     print(f"Check {filename} for XML API reply")
+            #     sys.exit(0)
 
         elif xml_or_rest == "rest":
 
@@ -220,20 +253,18 @@ class api_lib_pa:
             if json_response["@status"] == "success":
                 success = True
             if filename:
-                filename = f"{filename}"
-                self.create_json_files(response, filename)
+                self.create_json_files(json_response, filename)
 
-            if not json_response["result"]:
-                print(
-                    "Nothing found on PA/Panorama, are you connecting to the right device? Check output for REST API reply"
-                )
+            # if not json_response["result"]:
+            #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
+            #     print(f"Check {filename} for XML API reply")
 
         if not success:
             # Extra logging when debugging
             if DEBUG:
                 print(f"\nGET request sent: xpath={xpath_or_restcall}.\n")
                 print(f"\nResponse: \n{response}")
-                self.create_xml_files(result, filename)
+                self.create_xml_files(response, filename)
                 print(f"Output also written to {filename}")
             else:
                 print(f"\nError exporting '{filename}' object.")
