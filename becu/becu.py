@@ -1,15 +1,15 @@
 """
 Description: 
     PA Gratuitous ARP Script
-    Connect to PA or Panorama and determine which IP Addresses and Interfaces should
-    Send Gratuitous ARP out, typically during the cutover of a new FW.
+    Connect to PA or Panorama and convert existing ruleset from standard/on-prem 'interzone'
+    to a cloud-based VM 'intrazone' style deployment. This PA deployment has only 2 zones,
+    public and private. All East/West security-rules are intrazone using address groups, 
+    rather than having a different zone/interface like traditional physical PA's.
 
 Requires:
-    ipcalc
     requests
     xmltodict
-    lxml
-        to install try: pip3 install xmltodict requests lxml ipcalc
+        to install try: pip3 install xmltodict requests 
 
 Author:
     Ryan Gillespie rgillespie@compunet.biz
@@ -21,12 +21,11 @@ Tested:
     PA VM100, Panorama
 
 Example usage:
-        $ python3 garp.py <destination folder> <PA(N) mgmt IP> <username>
+        $ python3 becu.py <PA(N) mgmt IP> <username>
         Password: 
 
 Cautions:
-    - Source-NAT only (discovers and outputs others)
-    - Panorama Post-NAT rules only (for now)
+    - Not fully developed yet
     
 
 Legal:
@@ -43,11 +42,9 @@ from getpass import getpass
 import sys
 import os
 import json
-# import ipcalc
 import time
 # import concurrent.futures
 
-# from lxml import etree
 import xmltodict
 import api_lib_pa as pa
 
@@ -57,10 +54,15 @@ import api_lib_pa as pa
 
 DEBUG = True
 
-new_intrazone_private = "TESTMEZONETESTMEZONE"
-existing_privzones = {"dmz":"newdmzobj", "trusted":"newtrustobj"}
+new_intrazone_private = "new-private-zone-name"
+existing_privzones = {
+    "dmz":"newdmzobj", 
+    "trusted":"newtrustobj"
+}
 
 class mem: 
+    XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
+    XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
 
     XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security"
     REST_SECURITYRULES = "/restapi/9.0/Policies/SecurityRules?location=vsys&vsys=vsys1&output-format=json"
@@ -81,21 +83,49 @@ class mem:
 # fmt: on
 
 
-def iterdict(d, searchfor):
-    """
-    Traverse through the dictionary (d) and find the key: (searchfor).
-    Return the value of that key.
-    """
-    for k, v in d.items():
-        if searchfor in k:
-            return v
-        elif isinstance(v, dict):
-            if not v:
-                print(f"system error..\nk={k}\nv={v}")
-                sys.exit(0)
-            return iterdict(v, searchfor)
+# def iterdict(d, searchfor):
+#     """
+#     Traverse through the dictionary (d) and find the key: (searchfor).
+#     Return the value of that key.
+#     """
+#     for k, v in d.items():
+#         if searchfor in k:
+#             return v
+#         elif isinstance(v, dict):
+#             if not v:
+#                 print(f"system error..\nk={k}\nv={v}")
+#                 sys.exit(0)
+#             return iterdict(v, searchfor)
+#         else:
+#             pass
+
+
+def grab_panorama_objects():
+    temp_device_groups = mem.fwconn.grab_api_output("xml", mem.XPATH_DEVICE_GROUPS)
+    temp_template_names = mem.fwconn.grab_api_output("xml", mem.XPATH_TEMPLATE_NAMES)
+    device_groups = []
+    template_names = []
+
+    # Need to check for no response, must be an IP not address
+    if "entry" in temp_device_groups["response"]["result"]["device-group"]:
+        for entry in temp_device_groups["response"]["result"]["device-group"]["entry"]:
+            device_groups.append(entry["@name"])
+    else:
+        print(f"Error, Panorama chosen but no Device Groups found.")
+        sys.exit(0)
+
+   # Need to check for no response, must be an IP not address
+    if "entry" in temp_template_names["response"]["result"]["template"]:
+        if isinstance(temp_template_names["response"]["result"]["template"]["entry"],list):
+            for entry in temp_template_names["response"]["result"]["template"]["entry"]:
+                template_names.append(entry["@name"])
         else:
-            pass
+            template_names.append(temp_template_names["response"]["result"]["template"]["entry"]["@name"])
+    else:
+        print(f"Error, Panorama chosen but no Template Names found.")
+        sys.exit(0)
+    
+    return device_groups, template_names
 
 
 def temp_do_output(modified_rules):
@@ -184,7 +214,6 @@ def grab_xml_or_json_file(filename):
     return output
 
 
-
 def becu(pa_ip, username, password, pa_or_pan, root_folder=None):
     """
     Main point of entry.
@@ -207,17 +236,13 @@ def becu(pa_ip, username, password, pa_or_pan, root_folder=None):
 
         # Needs Template Name & Device Group
         device_groups, template_names = grab_panorama_objects()
-        print("\nTemplate Names:")
-        print("---------------------")
-        for template in template_names:
-            print(template)
+
         print("--------------\n")
         print("Device Groups:")
         print("--------------")
         for dg in device_groups:
             print(dg)
             
-        template_name = input("\nEnter the Template Name (CORRECTLY!): ")
         mem.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
 
         XPATH_INTERFACES = mem.XPATH_INTERFACES_PAN
