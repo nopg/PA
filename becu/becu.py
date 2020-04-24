@@ -164,6 +164,9 @@ def modify_rules(security_rules):
         if isinstance(from_zone, list):
             count = 0
             for zone in from_zone:
+                if isinstance(zone, dict):
+                    print("\nError, candidate config detected. Please commit changes before proceeding.\n")
+                    sys.exit(0)                 
                 if zone in existing_privzones:
                     new_addr_obj = existing_privzones[zone]
                     
@@ -180,6 +183,10 @@ def modify_rules(security_rules):
                                 count += 1
                                 newrule["source"]["member"] = new_addr_obj
 
+        elif isinstance(from_zone, dict):
+            print("\nError, candidate config detected. Please commit changes before proceeding.\n")
+            sys.exit(0)
+        
         elif from_zone in existing_privzones:
             new_addr_obj = existing_privzones[from_zone]
 
@@ -191,9 +198,9 @@ def modify_rules(security_rules):
 
             elif src_addr == "any":
                 newrule["source"]["member"] = new_addr_obj
-        # else:
-        #     print(from_zone)
-        #     sys.exit(0)
+        else:
+            print(from_zone)
+            sys.exit(0)
 
         if isinstance(to_zone, list):
             for zone in to_zone:

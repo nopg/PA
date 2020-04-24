@@ -38,13 +38,14 @@ Legal:
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
 
-import requests
 import sys
 import os
 import json
 import xmltodict
 import xml.dom.minidom
 from datetime import datetime
+
+import requests
 
 # Who cares about SSL?
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
