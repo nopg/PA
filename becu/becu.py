@@ -82,9 +82,10 @@ class mem:
 
 # fmt: on
 
-# Read PA file, return dict based on xml or json
 def grab_xml_or_json_file(filename):
-
+    """
+    Read PA file, return dict based on xml or json
+    """
     output = None
 
     try:
@@ -142,40 +143,66 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None):
 
 
 def modify_rules(security_rules):
+    """
+    MODIFY SECURITY RULES
+    This accepts a dictionary of rules and modifies them to a cloud-based intra-zone ruleset.
+    Uses 2 global dictionaries (global for easy end-user modification)
+     - EXISTING_PRIVZONES
+        dictionary
+        The key is any (typically trusted) zone name that should be updated, due to intra-zone conversion.
+        The value is the name of the address or address-group that is associated with this zone.
+        The address/group object should already exist in the PA configuration
+     - NEW_INTRAZONE_PRIVATE
+        string, the new trusted/private zone name to be used for all intra-zone traffic.
 
+    :param security_rules: existing security rules
+    :return: modified_rules, new/modified security rule-set
+    """
     def modify(srcdst, x_zone, x_addr):
+        """
+        inner function (possibly to be moved outside later)
+        The bulk of the logic for zone modification is done here
+        Source & destination behave the same, this allows the same code to be used for both.
+
+        :param srcdst: the xml tag needed for insertion into the new rule
+        :param x_zone: from or to, zone name
+        :param x_addr: source or destination, address/group object
+        """
         try:
             if isinstance(x_zone, list):
                 count = 0
                 for zone in x_zone: 
                     if zone in EXISTING_PRIVZONES:
+                        # Get the address/group object associated to this zone
                         new_addr_obj = EXISTING_PRIVZONES[zone]
                     
                         if isinstance(x_addr, list):
                             for x in x_addr:
-                                if x == "any":
+                                if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
                                     newrule[srcdst]["member"].remove("any")
                                     newrule[srcdst]["member"].append(new_addr_obj)
-                        elif x_addr == "any":
-                            if count >= 1:  # Corner case, 2 zones but only 1 existing address object, convert to list
+                        elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
+                            if count >= 1:  # Corner case; 2 zones, 1 existing address object, convert to list
                                 newrule[srcdst]["member"] = [new_addr_obj]
                             else:
                                 count += 1
                                 newrule[srcdst]["member"] = new_addr_obj
 
             elif x_zone in EXISTING_PRIVZONES:
+                # Get the address/group object associated to this zone
                 new_addr_obj = EXISTING_PRIVZONES[x_zone]
                 if isinstance(x_addr, list):
                     for x in x_addr:
-                        if srcdst == "any":
+                        if srcdst == "any": # The source/destination IP's are 'any', update the rule to use the new object
                             newrule[srcdst]["member"].remove("any")
                             newrule[srcdst]["member"].append(new_addr_obj)
 
-                elif x_addr == "any":
+                elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
                     newrule[srcdst]["member"] = new_addr_obj
-            # Not Found in Existing List
+
+            # Not Found in Existing List, let the user know just in case.
             else:
-                print(f"zone not in list: {x_zone}")
+                print(f"zone not found existing list: {x_zone}")
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
             sys.exit(0)
