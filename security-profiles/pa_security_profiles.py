@@ -155,7 +155,7 @@ def import_profile_objects(root_folder, profile_type, xpath):
             # Assigning the correct string to entry_element. This removes the root <entry> tag by using entry[0]
             # API expects the /entry[@name='']> in the xpath, but NOT in the actual import url (xml &element=<../>)
             xmltree = etree.XML(xml)
-            for entry in xmltree.getroot():
+            for entry in xmltree:
                 if entry.attrib["name"] == entry_name:
                     if everfound == True:
                         print(
