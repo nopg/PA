@@ -53,6 +53,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 DEBUG = False
+XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
+XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
 
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
@@ -100,14 +102,13 @@ class api_lib_pa:
         # Pull folder name from string
         end = filename.rfind("/")
         if end != -1:
-            folder = filename[-1:end]
-
-        # timestamp = "/" + \
-        # str(datetime.now().year) + '-' + \
-        # str(datetime.now().month) + '-' + \
-        # str(datetime.now().day) + '--' + \
-        # str(datetime.now().hour) + '-' + \
-        # str(datetime.now().minute) + '/'
+            folder = filename[0:end]
+            timestamp = "/" + \
+            str(datetime.now().year) + '-' + \
+            str(datetime.now().month) + '-' + \
+            str(datetime.now().day) + '--' + \
+            str(datetime.now().hour) + '-' + \
+            str(datetime.now().minute) + '/'
 
             filename = folder + timestamp + filename[end:]
 
@@ -175,6 +176,36 @@ class api_lib_pa:
         fout.close()
 
         # print("\tCreated: {}\n".format(filename))
+
+
+    # Grab Panorama Device Groups & Templates
+    def grab_panorama_objects(self):
+        temp_device_groups = self.grab_api_output("xml", XPATH_DEVICE_GROUPS)
+        temp_template_names = self.grab_api_output("xml", XPATH_TEMPLATE_NAMES)
+        device_groups = []
+        template_names = []
+
+        # Need to check for no response, must be an IP not address
+        if "entry" in temp_device_groups["result"]["device-group"]:
+            for entry in temp_device_groups["result"]["device-group"]["entry"]:
+                device_groups.append(entry["@name"])
+        else:
+            print(f"Error, Panorama chosen but no Device Groups found.")
+            sys.exit(0)
+
+    # Need to check for no response, must be an IP not address
+        if "entry" in temp_template_names["result"]["template"]:
+            if isinstance(temp_template_names["result"]["template"]["entry"],list):
+                for entry in temp_template_names["result"]["template"]["entry"]:
+                    template_names.append(entry["@name"])
+            else:
+                template_names.append(temp_template_names["result"]["template"]["entry"]["@name"])
+        else:
+            print(f"Error, Panorama chosen but no Template Names found.")
+            sys.exit(0)
+        
+        return device_groups, template_names
+
 
     # GET request for Palo Alto API
     def get_xml_request_pa(
