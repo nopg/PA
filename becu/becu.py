@@ -106,7 +106,7 @@ def grab_panorama_objects():
             for entry in temp_template_names["result"]["template"]["entry"]:
                 template_names.append(entry["@name"])
         else:
-            template_names.append(temp_template_names["response"]["result"]["template"]["entry"]["@name"])
+            template_names.append(temp_template_names["result"]["template"]["entry"]["@name"])
     else:
         print(f"Error, Panorama chosen but no Template Names found.")
         sys.exit(0)
@@ -114,9 +114,30 @@ def grab_panorama_objects():
     return device_groups, template_names
 
 
-def temp_do_output(modified_rules, xpath):
+# Read PA file, return dict based on xml or json
+def grab_xml_or_json_file(filename):
 
-    with open("modified-rules.xml", "w") as fout:
+    output = None
+
+    try:
+        with open(filename, "r") as fin:
+            data = fin.read()
+            if filename.endswith(".xml"):
+                output = xmltodict.parse(data)
+                output = output["response"]
+            elif filename.endswith(".json"):
+                output = json.loads(data)        
+    except FileNotFoundError:
+        print("\nFile not found, check filename.\n")
+        sys.exit(0)
+
+    return output
+
+
+def temp_do_output(modified_rules, filename=None, xpath=None):
+    if not filename:
+        filename = "modified-pa-rules.xml"
+    with open(filename, "w") as fout:
         add_entry = {"entry": modified_rules}
         modified_rules_xml = {"config": {"security": {"rules": add_entry} } }
         data = xmltodict.unparse(modified_rules_xml)
@@ -141,13 +162,10 @@ def temp_do_output(modified_rules, xpath):
             element = element.replace("<root>", "")
             element = element.replace("</root>", "")
 
-            print(f"entry_element4={element}")
-            print(f"xpath={xpath}")
+            print(f"Updating rule: {entry}")
             response = mem.fwconn.get_xml_request_pa(
                 call_type="config", action="edit", xpath=xpath1, element=element,
             )
-
-            print(f"response={response}")
 
 
 def modify_rules(security_rules):
@@ -199,8 +217,7 @@ def modify_rules(security_rules):
             elif src_addr == "any":
                 newrule["source"]["member"] = new_addr_obj
         else:
-            print(from_zone)
-            sys.exit(0)
+            print(f"zone not in list: {from_zone}")
 
         if isinstance(to_zone, list):
             for zone in to_zone:
@@ -227,27 +244,6 @@ def modify_rules(security_rules):
         modified_rules.append(newrule)
 
     return modified_rules
-
-     
-
-# Read PA file, return dict based on xml or json
-def grab_xml_or_json_file(filename):
-
-    output = None
-
-    try:
-        with open(filename, "r") as fin:
-            data = fin.read()
-            if filename.endswith(".xml"):
-                output = xmltodict.parse(data)
-                output = output["response"]
-            elif filename.endswith(".json"):
-                output = json.loads(data)        
-    except FileNotFoundError:
-        print("\nFile not found, check filename.\n")
-        sys.exit(0)
-
-    return output
 
 
 def becu(pa_ip, username, password, pa_or_pan, filename=None):
@@ -299,16 +295,16 @@ def becu(pa_ip, username, password, pa_or_pan, filename=None):
 
             if pre_security_rules["result"]:
                 modified_rules_pre = modify_rules(pre_security_rules["result"]["rules"]["entry"])
-                temp_do_output(modified_rules_pre, mem.XPATH_PRE_SECURITY_RULES_PAN)
+                temp_do_output(modified_rules_pre, "modified-pre-rules.xml", mem.XPATH_PRE_SECURITY_RULES_PAN)
             if post_security_rules["result"]:
                 modified_rules_post = modify_rules(post_security_rules["result"]["rules"]["entry"])
-                temp_do_output(modified_rules_post, mem.XPATH_POST_SECURITY_RULES_PAN)
+                temp_do_output(modified_rules_post, "modified-post-rules.xml", mem.XPATH_POST_SECURITY_RULES_PAN)
             
         else:
             security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_SECURITYRULES, "pa-rules.xml")
             if security_rules:
                 modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
-                temp_do_output(modified_rules, mem.XPATH_SECURITYRULES)
+                temp_do_output(modified_rules, "modified-pa-rules.xml", mem.XPATH_SECURITYRULES)
 
     end = time.perf_counter()
     runtime = end - start

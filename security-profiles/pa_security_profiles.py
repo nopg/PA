@@ -45,6 +45,7 @@ import sys
 import os
 import json
 import xml.dom.minidom
+import re
 
 from lxml import etree
 import xmltodict
@@ -106,11 +107,11 @@ def write_data_output(temp, filename):
     else:
         data = xmltodict.unparse(temp)
     prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
-    #prettyxml = prettyxml.replace('<?xml version="1.0" encoding="utf-8"?>', "")
     prettyxml = prettyxml.replace('<?xml version="1.0" ?>', "")
+    data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
 
     with open(filename, "w") as fout:
-        fout.write(prettyxml)
+        fout.write(data)
 
 
 # Imports profiles into Palo Alto API based on profile type
@@ -138,7 +139,7 @@ def import_profile_objects(root_folder, profile_type, xpath):
     index = xpath.rfind("/")  # Find last section of xpath
     entry_or_profile = xpath[index:]
     entry_found = entry_or_profile.find("/entry[@name='")
-    # Find the actual entry name
+    # Find the actual entry name, -1 means not found in this case.
     if entry_found != -1:
         entry_name = entry_or_profile.replace("/entry[@name='", "")
         entry_name = entry_name.replace("']", "")
@@ -170,6 +171,10 @@ def import_profile_objects(root_folder, profile_type, xpath):
             if not iterfound:
                 # Move to next xml file
                 continue
+
+        # Strip whitespace from prettyxml. PA complains otherwise.
+        #test = "".join(re.split('\t|\n', entry_element))
+        #print(test)
 
         # Import xml via Palo Alto API
         response = obj.get_request_pa(

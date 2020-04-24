@@ -46,7 +46,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-DEBUG = False
+DEBUG = True
 
 # XML API Class for use with Palo Alto API
 class xml_api_lib_pa:
