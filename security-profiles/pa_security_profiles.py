@@ -44,6 +44,7 @@ import getpass
 import sys
 import os
 import json
+import xml.dom.minidom
 
 from lxml import etree
 import xmltodict
@@ -104,10 +105,12 @@ def write_data_output(temp, filename):
             data = xmltodict.unparse(temp)
     else:
         data = xmltodict.unparse(temp)
-    data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
+    #prettyxml = prettyxml.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    prettyxml = prettyxml.replace('<?xml version="1.0" ?>', "")
 
     with open(filename, "w") as fout:
-        fout.write(data)
+        fout.write(prettyxml)
 
 
 # Imports profiles into Palo Alto API based on profile type
