@@ -3,3 +3,4 @@
 *.parameters.json
 env-*/
 becu/examples/
+security-profiles/__pycache__/
