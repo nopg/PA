@@ -61,6 +61,7 @@ EXISTING_PRIVZONES = {
     "trusted":"NEW-TRUST-OBJ",
     "untrusted":"NEW-UNTRUST-OBJ",
     "ViptelaTransit":"NEW-VIPTELA-OBJ"
+    #"untrust-inet":"NEW-UNTRUST-INET-OBJ"
 }
 
 class mem: 
@@ -116,6 +117,7 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None):
     # Create output file
     with open(filename, "w") as fout:
         fout.write(prettyxml)
+        print(f"Output at: {filename}")
 
 
     # Import xml via Palo Alto API, TO BE UPDATED
@@ -141,6 +143,43 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None):
 
 def modify_rules(security_rules):
 
+    def modify(srcdst, x_zone, x_addr):
+        try:
+            if isinstance(x_zone, list):
+                count = 0
+                for zone in x_zone: 
+                    if zone in EXISTING_PRIVZONES:
+                        new_addr_obj = EXISTING_PRIVZONES[zone]
+                    
+                        if isinstance(x_addr, list):
+                            for x in x_addr:
+                                if x == "any":
+                                    newrule[srcdst]["member"].remove("any")
+                                    newrule[srcdst]["member"].append(new_addr_obj)
+                        elif x_addr == "any":
+                            if count >= 1:  # Corner case, 2 zones but only 1 existing address object, convert to list
+                                newrule[srcdst]["member"] = [new_addr_obj]
+                            else:
+                                count += 1
+                                newrule[srcdst]["member"] = new_addr_obj
+
+            elif x_zone in EXISTING_PRIVZONES:
+                new_addr_obj = EXISTING_PRIVZONES[x_zone]
+                if isinstance(x_addr, list):
+                    for x in x_addr:
+                        if srcdst == "any":
+                            newrule[srcdst]["member"].remove("any")
+                            newrule[srcdst]["member"].append(new_addr_obj)
+
+                elif x_addr == "any":
+                    newrule[srcdst]["member"] = new_addr_obj
+            # Not Found in Existing List
+            else:
+                print(f"zone not in list: {x_zone}")
+        except TypeError:
+            print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
+            sys.exit(0)
+
     modified_rules = []
     for oldrule in security_rules:
         
@@ -150,63 +189,9 @@ def modify_rules(security_rules):
         src_addr = oldrule["source"]["member"]
         dst_addr = oldrule["destination"]["member"]
 
-        if isinstance(from_zone, list):
-            count = 0
-            for zone in from_zone:
-                if isinstance(zone, dict):
-                    print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
-                    sys.exit(0)                 
-                if zone in EXISTING_PRIVZONES:
-                    new_addr_obj = EXISTING_PRIVZONES[zone]
-                    
-                    if isinstance(src_addr, list):
-                        for source in src_addr:
-                            if source == "any":
-                                newrule["source"]["member"].remove("any")
-                                newrule["source"]["member"].append(new_addr_obj)
-                    else:
-                        if src_addr == "any":
-                            if count >= 1:  # Corner case, 2 zones but only 1 existing address object, convert to list
-                                newrule["source"]["member"] = [new_addr_obj]
-                            else:
-                                count += 1
-                                newrule["source"]["member"] = new_addr_obj
-
-        elif isinstance(from_zone, dict):
-            print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
-            sys.exit(0)
-        
-        elif from_zone in EXISTING_PRIVZONES:
-            new_addr_obj = EXISTING_PRIVZONES[from_zone]
-
-            if isinstance(src_addr, list):
-                for source in src_addr:
-                    if source == "any":
-                        newrule["source"]["member"].remove("any")
-                        newrule["source"]["member"].append(new_addr_obj)
-
-            elif src_addr == "any":
-                newrule["source"]["member"] = new_addr_obj
-        else:
-            print(f"zone not in list: {from_zone}")
-
-        if isinstance(to_zone, list):
-            for zone in to_zone:
-                if zone in EXISTING_PRIVZONES:
-                    new_addr_obj = EXISTING_PRIVZONES[zone]
-
-                    if isinstance(dst_addr, list):
-                        for dest in dst_addr:
-                            if dest == "any":
-                                newrule["destination"]["member"].pop("any")
-                                newrule["destination"]["member"].append(new_addr_obj)
-                    elif dst_addr == "any":
-                        newrule["destination"]["member"] = new_addr_obj
-        elif to_zone in EXISTING_PRIVZONES:
-            new_addr_obj = EXISTING_PRIVZONES[to_zone]
-
-            if dst_addr == "any":
-                newrule["destination"]["member"] = new_addr_obj
+        # Check and Modify to Intrazone
+        modify("source", from_zone,src_addr)
+        modify("destination", to_zone,dst_addr)
 
     # Update zones to new private zone (intrazone rules)
         newrule["from"]["member"] = NEW_INTRAZONE_PRIVATE
@@ -305,13 +290,12 @@ if __name__ == "__main__":
     elif len(sys.argv) != 3:
         print("\nplease provide the following arguments:")
         print(
-            "\tpython3 becu.py <PA/Panorama IP> <username> <optional name of output file>\n\n"
+            "\tpython3 becu.py <PA/Panorama IP> <username>\n\n"
         )
         sys.exit(0)
     else:
         # Correct input, no filename, set to None
         filename = None
-
 
     # Gather input
     pa_ip = sys.argv[1]
