@@ -177,7 +177,7 @@ class api_lib_pa:
 
     # GET request for Palo Alto API
     def get_xml_request_pa(
-        self, call_type="config", action="show", xpath=None, element=None
+        self, call_type="config", action="show", xpath=None, element=None,
     ):
         # If no element is sent, should be a 'show' or 'get' action, do not send &element=<element>
         if not element:
@@ -222,6 +222,30 @@ class api_lib_pa:
 
         # Return string (XML)
         return response.text
+
+
+    # POST request for Palo Alto API -- Large imports
+    def post_xml_request_pa(
+        self, call_type="config", action="show", xpath=None, payload=None,
+    ):
+
+        url = f"https://{self.pa_ip}:443/api?type={call_type}&action={action}&xpath={xpath}&key={self.key}"
+
+        # Make the API call
+        response = self.session[self.pa_ip].post(url, data=payload, verify=False)
+
+        # Extra logging if debugging
+        if DEBUG:
+            print(f"URL = {url}")
+            print(
+                f"\nGET request sent: type={call_type}, action={action}, \n  xpath={xpath}.\n"
+            )
+            print(f"\nResponse Status Code = {response.status_code}")
+            print(f"\nResponse = {response.text}")
+
+        # Return string (XML)
+        return response.text
+
 
     def grab_api_output(
         self, xml_or_rest, xpath_or_restcall, filename=None,

@@ -55,19 +55,21 @@ import api_lib_pa as pa
 
 DEBUG = False
 
-new_intrazone_private = "new-private-zone-name"
+new_intrazone_private = "NEW-PRIVATE-ZONE-NAME"
 existing_privzones = {
-    "dmz":"newdmzobj", 
-    "trusted":"newtrustobj"
+    "dmz":"NEW-DMZ-OBJ", 
+    "trusted":"NEW-TRUST-OBJ",
+    "untrusted":"NEW-UNTRUST-OBJ",
+    "ViptelaTransit":"NEW-VIPTELA-OBJ"
 }
 
 class mem: 
     XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
     XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
 
-    XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security"
-    XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security"
-    XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security"
+    XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
+    XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
+    XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
     REST_SECURITYRULES = "/restapi/9.0/Policies/SecurityRules?location=vsys&vsys=vsys1&output-format=json"
     
     ip_to_eth_dict = {}
@@ -112,33 +114,43 @@ def grab_panorama_objects():
     return device_groups, template_names
 
 
-def temp_do_output(modified_rules):
-    # print(modified_rules)
+def temp_do_output(modified_rules, xpath):
 
-    # modified_rules = {"response": modified_rules}
-    # modified_rules = {"result": modified_rules}
-
-    # print("\n\n")
-    # print(modified_rules)
-    # print("\n\n")
-    # test = xmltodict.unparse(modified_rules)
-    # sys.exit(0)
     with open("modified-rules.xml", "w") as fout:
-        modified_rules = {"response": modified_rules}
-        modified_rules = {"result": modified_rules}       
-        data = xmltodict.unparse(modified_rules)
+        add_entry = {"entry": modified_rules}
+        modified_rules_xml = {"config": {"security": {"rules": add_entry} } }
+        data = xmltodict.unparse(modified_rules_xml)
         data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
         prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
+        prettyxml = prettyxml.replace('<?xml version="1.0" ?>', "")
         fout.write(prettyxml)
 
+    entry_element = data.replace("<rules>", "")
+    entry_element = entry_element.replace("</rules>", "")
+
+    # Start making api calls
+    # Import xml via Palo Alto API
+    if not DEBUG:
+        for rule in modified_rules:
+            entry = rule["@name"]
+            xpath1 = xpath + f"/entry[@name='{entry}']"
+            rule = {"entry": rule}
+            rule = {"root": rule}
+            element = xmltodict.unparse(rule)
+            element = element.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+            element = element.replace("<root>", "")
+            element = element.replace("</root>", "")
+
+            print(f"entry_element4={element}")
+            print(f"xpath={xpath}")
+            response = mem.fwconn.get_xml_request_pa(
+                call_type="config", action="edit", xpath=xpath1, element=element,
+            )
+
+            print(f"response={response}")
 
 
 def modify_rules(security_rules):
-    # Pseudocode for BECU
-    # check if from zone is a list
-    #  if so, check each zone against existing_privzones
-    #   find new address object for this zone
-    # 
 
     modified_rules = []
     for oldrule in security_rules:
@@ -150,6 +162,7 @@ def modify_rules(security_rules):
         dst_addr = oldrule["destination"]["member"]
 
         if isinstance(from_zone, list):
+            count = 0
             for zone in from_zone:
                 if zone in existing_privzones:
                     new_addr_obj = existing_privzones[zone]
@@ -157,9 +170,15 @@ def modify_rules(security_rules):
                     if isinstance(src_addr, list):
                         for source in src_addr:
                             if source == "any":
+                                newrule["source"]["member"].remove("any")
+                                newrule["source"]["member"].append(new_addr_obj)
+                    else:
+                        if src_addr == "any":
+                            if count >= 1:  # Corner case, 2 zones but only 1 address object, convert to list
+                                newrule["source"]["member"] = [new_addr_obj]
+                            else:
+                                count += 1
                                 newrule["source"]["member"] = new_addr_obj
-                    elif src_addr == "any":
-                        newrule["source"]["member"] = new_addr_obj
 
         elif from_zone in existing_privzones:
             new_addr_obj = existing_privzones[from_zone]
@@ -167,16 +186,27 @@ def modify_rules(security_rules):
             if isinstance(src_addr, list):
                 for source in src_addr:
                     if source == "any":
-                        newrule["source"]["member"] = new_addr_obj
+                        newrule["source"]["member"].remove("any")
+                        newrule["source"]["member"].append(new_addr_obj)
 
             elif src_addr == "any":
                 newrule["source"]["member"] = new_addr_obj
-
+        # else:
+        #     print(from_zone)
+        #     sys.exit(0)
 
         if isinstance(to_zone, list):
             for zone in to_zone:
                 if zone in existing_privzones:
                     new_addr_obj = existing_privzones[zone]
+
+                    if isinstance(dst_addr, list):
+                        for dest in dst_addr:
+                            if dest == "any":
+                                newrule["destination"]["member"].pop("any")
+                                newrule["destination"]["member"].append(new_addr_obj)
+                    elif dst_addr == "any":
+                        newrule["destination"]["member"] = new_addr_obj
         elif to_zone in existing_privzones:
             new_addr_obj = existing_privzones[to_zone]
 
@@ -188,12 +218,6 @@ def modify_rules(security_rules):
         newrule["to"]["member"] = new_intrazone_private
 
         modified_rules.append(newrule)
-
-    # print("\n\n\nModified Rules:")
-    # for ace in modified_rules:
-    #     print(ace["@name"])
-    #     print(f"to: {ace['to']}, from: {ace['from']}")
-    #     print(f"source: {ace['source']}, dest: {ace['destination']}")
 
     return modified_rules
 
@@ -230,7 +254,7 @@ def becu(pa_ip, username, password, pa_or_pan, filename=None):
     mem.pa_ip = pa_ip
     mem.username = username
     mem.password = password
-    if not DEBUG:
+    if pa_or_pan != "xml":
         mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password)
     mem.pa_or_pan = pa_or_pan
     mem.root_folder = filename
@@ -250,34 +274,34 @@ def becu(pa_ip, username, password, pa_or_pan, filename=None):
             
         mem.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
 
-        XPATH_POST = mem.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
-        XPATH_PRE = mem.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+        mem.XPATH_PRE_SECURITY_RULES_PAN = mem.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+        mem.XPATH_POST_SECURITY_RULES_PAN = mem.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
         
     # Grab 'start' time
     start = time.perf_counter()
 
     # Grab Rules
-    if DEBUG:
+    if mem.pa_or_pan == "xml":
         security_rules = grab_xml_or_json_file(mem.filename)
-        modified_rules = modify_rules(security_rules["result"]["security"]["rules"]["entry"])
+        modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
         temp_do_output(modified_rules)
     else:
         if mem.pa_or_pan == "panorama":
-            pre_security_rules = mem.fwconn.grab_api_output("xml", XPATH_PRE, "pre-rules.xml")
-            post_security_rules = mem.fwconn.grab_api_output("xml", XPATH_POST, "post-rules.xml")
+            pre_security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_PRE_SECURITY_RULES_PAN, "pre-rules.xml")
+            post_security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_POST_SECURITY_RULES_PAN, "post-rules.xml")
 
             if pre_security_rules["result"]:
-                modified_rules_pre = modify_rules(pre_security_rules["result"]["security"]["rules"]["entry"])
-                temp_do_output(modified_rules_pre)
+                modified_rules_pre = modify_rules(pre_security_rules["result"]["rules"]["entry"])
+                temp_do_output(modified_rules_pre, mem.XPATH_PRE_SECURITY_RULES_PAN)
             if post_security_rules["result"]:
-                modified_rules_post = modify_rules(post_security_rules["result"]["security"]["rules"]["entry"])
-                temp_do_output(modified_rules_post)
+                modified_rules_post = modify_rules(post_security_rules["result"]["rules"]["entry"])
+                temp_do_output(modified_rules_post, mem.XPATH_POST_SECURITY_RULES_PAN)
             
         else:
-            security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_SECURITYRULES, mem.filename)
+            security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_SECURITYRULES, "pa-rules.xml")
             if security_rules:
-                modified_rules = modify_rules(security_rules["result"]["security"]["rules"]["entry"])
-                temp_do_output(modified_rules)
+                modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
+                temp_do_output(modified_rules, mem.XPATH_SECURITYRULES)
 
     end = time.perf_counter()
     runtime = end - start
@@ -305,7 +329,8 @@ if __name__ == "__main__":
     # Gather input
     pa_ip = sys.argv[1]
     username = sys.argv[2]
-    password = getpass("Enter Password: ")
+    if not DEBUG:
+        password = getpass("Enter Password: ")
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
@@ -317,9 +342,11 @@ if __name__ == "__main__":
 
     if DEBUG:
         if not filename:
-            filename = input("DEBUG ON.\nSecurity Rules Filename: ")
-        becu(pa_ip,username,password,"xml",filename)
-        sys.exit(0)
+            # filename = input("DEBUG ON.\nSecurity Rules Filename: ")
+            password = getpass("Enter Password: ")
+        else:
+            becu(pa_ip,username,"none","xml",filename)
+            sys.exit(0)
 
     # PA or Panorama?
     allowed = list("12")  # Allowed user input
