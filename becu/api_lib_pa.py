@@ -256,27 +256,28 @@ class api_lib_pa:
         return response.text
 
 
-    # POST request for Palo Alto API -- Large imports
-    def post_xml_request_pa(
-        self, call_type="config", action="show", xpath=None, payload=None,
+    # Import Named Configuration
+    def import_named_configuration(
+        self, xml_config, call_type="import", category="configuration"
     ):
 
-        url = f"https://{self.pa_ip}:443/api?type={call_type}&action={action}&xpath={xpath}&key={self.key}"
+        url = f"https://{self.pa_ip}:443/api?type={call_type}&category={category}&key={self.key}"
 
         # Make the API call
-        response = self.session[self.pa_ip].post(url, data=payload, verify=False)
+        response = self.session[self.pa_ip].post(url, files={'file':xml_config}, verify=False)
 
         # Extra logging if debugging
         if DEBUG:
             print(f"URL = {url}")
             print(
-                f"\nGET request sent: type={call_type}, action={action}, \n  xpath={xpath}.\n"
+                f"\nGET request sent: type={call_type}, category={category}, \n"
             )
             print(f"\nResponse Status Code = {response.status_code}")
             print(f"\nResponse = {response.text}")
 
-        # Return string (XML)
-        return response.text
+        # Return response
+        return response
+
 
 
     def grab_api_output(
