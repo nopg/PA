@@ -221,7 +221,7 @@ def modify_rules(security_rules):
                 new_addr_obj = EXISTING_PRIVATE_ZONES[x_zone]
                 if isinstance(x_addr, list):
                     for x in x_addr:
-                        if srcdst == "any": # The source/destination IP's are 'any', update the rule to use the new object
+                        if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
                             newrule[srcdst]["member"].remove("any")
                             newrule[srcdst]["member"].append(new_addr_obj)
 
