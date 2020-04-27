@@ -64,7 +64,7 @@ import api_lib_pa as pa
 
 # Using 'python becu.py <filename>' from cli will disable PUSH_CONFIG_TO_PA automatically
 # As well as load security rules from <filename> instead of connecting to a PA
-PUSH_CONFIG_TO_PA = True    
+PUSH_CONFIG_TO_PA = True
 
 NEW_PRIVATE_INTRAZONE = "NEW-PRIVATE-ZONE-NAME"
 EXISTING_PRIVATE_ZONES = {
@@ -208,7 +208,8 @@ def modify_rules(security_rules):
                                     newrule[srcdst]["member"].append(new_addr_obj)
                         elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
                             if count >= 1:  # Corner case; 2 zones, 1 existing address object, convert to list
-                                newrule[srcdst]["member"] = [new_addr_obj]
+                                newrule[srcdst]["member"] = [newrule[srcdst]["member"]]
+                                newrule[srcdst]["member"].append(new_addr_obj)
                             else:
                                 count += 1
                                 newrule[srcdst]["member"] = new_addr_obj
