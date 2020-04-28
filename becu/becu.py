@@ -55,6 +55,7 @@ import os
 import json
 import time
 import xml.dom.minidom
+import copy
 
 import xmltodict
 import api_lib_pa as pa
@@ -64,7 +65,7 @@ import api_lib_pa as pa
 
 # Using 'python becu.py <filename>' from cli will disable PUSH_CONFIG_TO_PA automatically
 # As well as load security rules from <filename> instead of connecting to a PA
-PUSH_CONFIG_TO_PA = True
+PUSH_CONFIG_TO_PA = False
 
 NEW_PRIVATE_INTRAZONE = "NEW-PRIVATE-ZONE-NAME"
 EXISTING_PRIVATE_ZONES = {
@@ -100,7 +101,11 @@ def grab_xml_or_json_file(filename):
             data = fin.read()
             if filename.endswith(".xml"):
                 output = xmltodict.parse(data)
-                output = output["response"]
+                if "response" in output:
+                    output = output["response"]
+                else:
+                    output = output["config"]["security"]
+                    output = {"result": output}
             elif filename.endswith(".json"):
                 output = json.loads(data)        
     except FileNotFoundError:
@@ -189,30 +194,40 @@ def modify_rules(security_rules):
         :param x_zone: from or to, zone name
         :param x_addr: source or destination, address/group object
         """
+        
         try:
             if isinstance(x_zone, list):
+                cx_zone = x_zone.copy()
                 count = 0
-                for zone in x_zone: 
+                for zone in cx_zone: 
                     if zone in EXISTING_PRIVATE_ZONES:
                         # Zone found, update this zone to the new private intra-zone
                         newrule[tofrom]["member"].remove(zone)
-                        newrule[tofrom]["member"].append(NEW_PRIVATE_INTRAZONE)
+                        if NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
+                            newrule[tofrom]["member"].append(NEW_PRIVATE_INTRAZONE)
 
                         # Get the address/group object associated to this zone
                         new_addr_obj = EXISTING_PRIVATE_ZONES[zone]
 
                         if isinstance(x_addr, list):
-                            for x in x_addr:
+                            cx_addr = x_addr.copy()
+                            for x in cx_addr:
                                 if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
                                     newrule[srcdst]["member"].remove("any")
                                     newrule[srcdst]["member"].append(new_addr_obj)
                         elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
-                            if count >= 1:  # Corner case; 2 zones, 1 existing address object, convert to list
-                                newrule[srcdst]["member"] = [newrule[srcdst]["member"]]
+                            if count == 1:  # Corner case; 2 zones, 1 existing address object, convert to list
+                                count += 1
+                                newrule[srcdst]["member"] = list(newrule[srcdst]["member"].split())
+                                newrule[srcdst]["member"].append(new_addr_obj)
+                            elif count > 1:
                                 newrule[srcdst]["member"].append(new_addr_obj)
                             else:
                                 count += 1
                                 newrule[srcdst]["member"] = new_addr_obj
+                    # Not Found in Existing List, let the user know just in case.
+                    else:
+                        print(f"'{zone}' not found in existing private zone list")
 
             elif x_zone in EXISTING_PRIVATE_ZONES:
                 # Zone found, update this zone to the new private intra-zone
@@ -221,7 +236,8 @@ def modify_rules(security_rules):
                 # Get the address/group object associated to this zone
                 new_addr_obj = EXISTING_PRIVATE_ZONES[x_zone]
                 if isinstance(x_addr, list):
-                    for x in x_addr:
+                    cx_addr = x_addr.copy()
+                    for x in cx_addr:
                         if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
                             newrule[srcdst]["member"].remove("any")
                             newrule[srcdst]["member"].append(new_addr_obj)
@@ -235,12 +251,13 @@ def modify_rules(security_rules):
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
             sys.exit(0)
+    
+        return None
 
     modified_rules = []
     print("\nModifying...\n")
     for oldrule in security_rules:
-        
-        newrule = oldrule
+        newrule = copy.deepcopy(oldrule)
         from_zone = oldrule["from"]["member"]
         to_zone = oldrule["to"]["member"]
         src_addr = oldrule["source"]["member"]
