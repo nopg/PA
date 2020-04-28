@@ -249,7 +249,7 @@ def modify_rules(security_rules):
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
             sys.exit(0)
     
-        return None
+        return None # This function modifies the local newrule
 
     modified_rules = []
     print("\nModifying...\n")
