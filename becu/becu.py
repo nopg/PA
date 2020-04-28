@@ -194,12 +194,11 @@ def modify_rules(security_rules):
         :param x_zone: from or to, zone name
         :param x_addr: source or destination, address/group object
         """
-        
+
         try:
             if isinstance(x_zone, list):
-                cx_zone = x_zone.copy()
                 count = 0
-                for zone in cx_zone: 
+                for zone in x_zone: 
                     if zone in EXISTING_PRIVATE_ZONES:
                         # Zone found, update this zone to the new private intra-zone
                         newrule[tofrom]["member"].remove(zone)
@@ -210,8 +209,7 @@ def modify_rules(security_rules):
                         new_addr_obj = EXISTING_PRIVATE_ZONES[zone]
 
                         if isinstance(x_addr, list):
-                            cx_addr = x_addr.copy()
-                            for x in cx_addr:
+                            for x in x_addr:
                                 if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
                                     newrule[srcdst]["member"].remove("any")
                                     newrule[srcdst]["member"].append(new_addr_obj)
@@ -236,8 +234,7 @@ def modify_rules(security_rules):
                 # Get the address/group object associated to this zone
                 new_addr_obj = EXISTING_PRIVATE_ZONES[x_zone]
                 if isinstance(x_addr, list):
-                    cx_addr = x_addr.copy()
-                    for x in cx_addr:
+                    for x in x_addr:
                         if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
                             newrule[srcdst]["member"].remove("any")
                             newrule[srcdst]["member"].append(new_addr_obj)
