@@ -8,8 +8,8 @@ def modify(security_rules):
     if not security_rules:
         return None
     elif isinstance(security_rules, str):
-        output = security_rules.replace("m", "Y")
-        return output
+        modified_string = security_rules.replace("me", "You")
+        return modified_string
 
     for oldrule in security_rules:
         newrule = copy.deepcopy(oldrule)

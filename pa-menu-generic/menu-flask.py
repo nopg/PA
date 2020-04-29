@@ -1,15 +1,16 @@
-from flask import Flask
-
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
+hi = [1,2,3,4,5,6]
+
 @app.route("/")
-def hello():
-    return "Hello Woaueoeaorld!"
+def home():
+    return render_template("index.html", title="gMenu")
 
 @app.route("/test")
 def test():
-    return "Testing!!\nClick here: <a href='/'>to go back</a>"
+    return render_template("about.html", titlie="gAbout",testing=hi)
 
 if __name__ == "__main__":
     app.run(debug=True)
