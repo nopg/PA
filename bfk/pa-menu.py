@@ -154,12 +154,12 @@ def grab_security_rules(pa_type, pa=None, filename=None):
         pa.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
     
         # Set the XPath now that we have the Device Group
-        XPATH_PRE_SECURITY_RULES_PAN = pa_api.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_POST_SECURITY_RULES_PAN = pa_api.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_PRE = pa_api.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_POST= pa_api.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
-        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE_SECURITY_RULES_PAN, "api/pre-rules.xml")
-        post_security_rules = pa.grab_api_output("xml", XPATH_POST_SECURITY_RULES_PAN, "api/post-rules.xml")
+        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "api/pre-rules.xml")
+        post_security_rules = pa.grab_api_output("xml", XPATH_POST, "api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
         if not pre_security_rules["result"]:
@@ -327,6 +327,7 @@ def main_menu(pa_ip, username, password, pa_type, filename=None):
             modified_rules = None
             modified_pre_rules = None
             modified_post_rules = None
+            to_output = []
 
             if pa_type == "xml":
                 security_rules = grab_security_rules("xml", None, filename)
@@ -342,15 +343,20 @@ def main_menu(pa_ip, username, password, pa_type, filename=None):
                     modified_post_rules = bob.modify(post_rules)
 
             if modified_rules:      
-                output_and_push_changes(modified_rules, "bobs-new-rules.xml")
-            if modified_pre_rules:      
-                output_and_push_changes(modified_pre_rules, "bobs-new-pre-rules.xml")
+                to_output.append( [modified_rules, "bobs-new-rules.xml", pa_api.XPATH_SECURITYRULES, pa] )
+            if modified_pre_rules:    
+                XPATH_PRE = pa_api.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)  
+                to_output.append( [modified_pre_rules, "bobs-new-pre-rules.xml", XPATH_PRE, pa] )
             if modified_post_rules:      
-                output_and_push_changes(modified_post_rules, "bobs-new-post-rules.xml")
+                XPATH_POST= pa_api.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
+                to_output.append( [modified_post_rules, "bobs-new-post-rules.xml", XPATH_POST, pa] )
+            
+            # Begin creating output and/or pushing rules to PA/PAN
+            for ruletype in to_output:
+                output_and_push_changes(*ruletype)
 
     print("\nExiting Main Menu.\n")
     sys.exit(0)
-
 
 
 # If run from the command line

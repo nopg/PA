@@ -58,14 +58,14 @@ import xml.dom.minidom
 import copy
 
 import xmltodict
-import api_lib_pa as pa
+import api_lib_pa as pa_api
 
 
 ####### EDIT BELOW ############################################################################
 
 # Using 'python becu.py <filename>' from cli will disable PUSH_CONFIG_TO_PA automatically
 # As well as load security rules from <filename> instead of connecting to a PA
-PUSH_CONFIG_TO_PA = False
+PUSH_CONFIG_TO_PA = True
 
 NEW_PRIVATE_INTRAZONE = "NEW-PRIVATE-ZONE-NAME"
 EXISTING_PRIVATE_ZONES = {
@@ -76,18 +76,6 @@ EXISTING_PRIVATE_ZONES = {
 }
 
 ####### EDIT ABOVE ############################################################################
-
-
-class mem: 
-    XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
-    XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
-    XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
-    pa_ip = None
-    username = None
-    password = None
-    fwconn = None
-    device_group = None
-    filename = ""
 
 
 def grab_xml_or_json_file(filename):
@@ -123,7 +111,7 @@ def error_check(response, operation):
         sys.exit(0)
 
 
-def output_and_push_changes(modified_rules, filename=None, xpath=None):
+def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
     # Always create an output file with the modified-rules.
     if not filename:
@@ -151,7 +139,7 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None):
         # Import Named Configuration .xml via Palo Alto API
         with open(filename) as fin:
             print("\nUploading Configuration, Please Wait....")
-            response = mem.fwconn.import_named_configuration(fin)
+            response = pa.import_named_configuration(fin)
 
         error_check(response, "Importing Configuration")
 
@@ -163,9 +151,9 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None):
         if load_config == "n":
             print("\nThank you, finished.\n")
         else:
-            load_url = f"https://{mem.fwconn.pa_ip}:443/api/?type=op&key={mem.fwconn.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{filename}</from></partial></config></load>"
+            load_url = f"https://{pa.pa_ip}:443/api/?type=op&key={pa.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{filename}</from></partial></config></load>"
             
-            response = mem.fwconn.session[mem.fwconn.pa_ip].get(load_url, verify=False)
+            response = pa.session[pa.pa_ip].get(load_url, verify=False)
 
             error_check(response, "Loading Configuration")
 
@@ -270,35 +258,31 @@ def modify_rules(security_rules):
     return modified_rules
 
 
-def becu(pa_ip, username, password, pa_or_pan, filename=None):
+def becu(pa_ip, username, password, pa_type, filename=None):
     """
     Main point of entry.
     Connect to PA/Panorama.
     Grab security rules from pa/pan.
     Modify them for intra-zone migration.
     """
-    mem.pa_ip = pa_ip
-    mem.username = username
-    mem.password = password
-    if pa_or_pan != "xml":
-        mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password)
-    mem.pa_or_pan = pa_or_pan
-    mem.filename = filename
+    
+    if pa_type != "xml":
+        pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
     to_output = []
 
 
-    if mem.pa_or_pan == "xml":
+    if pa_type == "xml":
         # Grab 'start' time
         start = time.perf_counter()
         # Grab XML file, modify rules, and create output file.
-        security_rules = grab_xml_or_json_file(mem.filename)
+        security_rules = grab_xml_or_json_file(filename)
         modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
         output_and_push_changes(modified_rules, "modified-xml-rules.xml")
 
-    elif mem.pa_or_pan == "panorama":
+    elif pa_type == "panorama":
 
         # Grab the Device Groups and Template Names, we don't need Template names.
-        device_groups, _ = mem.fwconn.grab_panorama_objects()
+        device_groups, _ = pa.grab_panorama_objects()
 
         print("--------------\n")
         print("Device Groups:")
@@ -306,36 +290,37 @@ def becu(pa_ip, username, password, pa_or_pan, filename=None):
         for dg in device_groups:
             print(dg)
             
-        mem.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
+        pa.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
 
         # Grab 'start' time
         start = time.perf_counter()
     
         # Set the XPath now that we have the Device Group
-        mem.XPATH_PRE_SECURITY_RULES_PAN = mem.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
-        mem.XPATH_POST_SECURITY_RULES_PAN = mem.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+        XPATH_PRE = pa_api.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_POST = pa_api.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
-        pre_security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_PRE_SECURITY_RULES_PAN, "api/pre-rules.xml")
-        post_security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_POST_SECURITY_RULES_PAN, "api/post-rules.xml")
+        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "api/pre-rules.xml")
+        post_security_rules = pa.grab_api_output("xml", XPATH_POST, "api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
         if pre_security_rules["result"]:
             modified_rules_pre = modify_rules(pre_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_pre,"modified-pre-rules.xml", mem.XPATH_PRE_SECURITY_RULES_PAN])
+            to_output.append([modified_rules_pre,"modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules["result"]:
             modified_rules_post = modify_rules(post_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_post,"modified-post-rules.xml", mem.XPATH_POST_SECURITY_RULES_PAN])
+            to_output.append([modified_rules_post,"modified-post-rules.xml", XPATH_POST, pa])
             
-    elif mem.pa_or_pan == "pa":
+    elif pa_type == "pa":
         # Grab 'start' time
         start = time.perf_counter()
         # Grab Rules
-        security_rules = mem.fwconn.grab_api_output("xml", mem.XPATH_SECURITYRULES, "api/pa-rules.xml")
+        XPATH = pa_api.XPATH_SECURITYRULES
+        security_rules = pa.grab_api_output("xml", XPATH, "api/pa-rules.xml")
         if security_rules["result"]:
             # Modify the rules, append to be output
             modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules,"modified-pa-rules.xml", mem.XPATH_SECURITYRULES])
+            to_output.append([modified_rules,"modified-pa-rules.xml", XPATH, pa])
 
     # Begin creating output and/or pushing rules to PA/PAN
     for ruletype in to_output:
@@ -372,7 +357,7 @@ if __name__ == "__main__":
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
-        paobj = pa.api_lib_pa(pa_ip, username, password)
+        paobj = pa_api.api_lib_pa(pa_ip, username, password, None)
     except:
         print(f"Error connecting to: {pa_ip}\nCheck username/password and network connectivity.")
         sys.exit(0)
@@ -381,7 +366,7 @@ if __name__ == "__main__":
     allowed = list("12")  # Allowed user input
     incorrect_input = True
     while incorrect_input:
-        pa_or_pan = input(
+        pa_type = input(
             """\nIs this a PA Firewall or Panorama?
 
         1) PA (Firewall)
@@ -390,18 +375,18 @@ if __name__ == "__main__":
         Enter 1 or 2: """
         )
 
-        for value in pa_or_pan:
+        for value in pa_type:
             if value not in allowed:
                 incorrect_input = True
                 break
             else:
                 incorrect_input = False
 
-    if pa_or_pan == "1":
-        pa_or_pan = "pa"
+    if pa_type == "1":
+        pa_type = "pa"
     else:
-        pa_or_pan = "panorama"
+        pa_type = "panorama"
 
     # Run program
     print("\nThank you...connecting..\n")
-    becu(pa_ip, username, password, pa_or_pan, filename)
+    becu(pa_ip, username, password, pa_type, filename)
