@@ -8,7 +8,7 @@ def modify(security_rules):
     if not security_rules:
         return None
     elif isinstance(security_rules, str):
-        modified_string = security_rules.replace("me", "You")
+        modified_string = security_rules.replace(security_rules, "You: " + security_rules)
         return modified_string
 
     for oldrule in security_rules:
@@ -21,13 +21,12 @@ def modify(security_rules):
         dst_addr = oldrule["destination"]["member"]
 
         # Check and modify to intra-zone based rules
-        # modify("source", "from", from_zone,src_addr)
-        # modify("destination", "to", to_zone,dst_addr)
+        # inner_modify("source", "from", from_zone,src_addr)
+        # inner_modify("destination", "to", to_zone,dst_addr)
 
-        print(f"From Zone = {from_zone}")
-        print(f"To Zone = {to_zone}")
-        print(f"Source Addresses = {src_addr}")
-        print(f"Destination Addresses = {dst_addr}")
+        print(f"\nRule name: {oldrule['@name']}")
+        print(f"From Zone = {from_zone}, Source Addr = {src_addr}")
+        print(f"To Zone = {to_zone}, Destination Addr = {dst_addr}\n")
 
         newrule["source"]["member"] = "MODIFIED!"
         newrule["from"]["member"] = ["zone1"]

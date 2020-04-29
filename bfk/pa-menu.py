@@ -81,7 +81,7 @@ def error_check(response, operation):
         sys.exit(0)
 
 
-def output_and_push_changes(modified_rules, filename=None, xpath=None):
+def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
     # Always create an output file with the modified-rules.
     if not filename:
