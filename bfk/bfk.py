@@ -7,6 +7,9 @@ def modify(security_rules):
 
     if not security_rules:
         return None
+    elif isinstance(security_rules, str):
+        output = security_rules.replace("m", "Y")
+        return output
 
     for oldrule in security_rules:
         newrule = copy.deepcopy(oldrule)
@@ -29,3 +32,9 @@ def modify(security_rules):
 
     print("..Done.")
     return modified_rules
+
+if __name__ == "__main__":
+    print("You called Bob directly...")
+    x = modify("me")
+    print(x)
+    print()
