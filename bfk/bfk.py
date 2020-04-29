@@ -12,6 +12,7 @@ def modify(security_rules):
         return modified_string
 
     for oldrule in security_rules:
+
         newrule = copy.deepcopy(oldrule)
 
         from_zone = oldrule["from"]["member"]
@@ -28,13 +29,17 @@ def modify(security_rules):
         print(f"Source Addresses = {src_addr}")
         print(f"Destination Addresses = {dst_addr}")
 
+        newrule["source"]["member"] = "MODIFIED!"
+        newrule["from"]["member"] = ["zone1"]
+        newrule["from"]["member"].append("zone2")
+
         modified_rules.append(newrule)
 
     print("..Done.")
     return modified_rules
 
 if __name__ == "__main__":
-    print("You called Bob directly...")
+    print("\nYou called Bob directly...")
     x = modify("me")
     print(x)
     print()
