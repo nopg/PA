@@ -49,21 +49,34 @@ import requests
 
 # Who cares about SSL?
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+#########################################################################################################
 DEBUG = False
+
 XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
 XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
+XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
+XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
+XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
+
+#########################################################################################################
 
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
     # Upon creation:
-    def __init__(self, pa_ip, username, password):
+    def __init__(self, pa_ip=None, username=None, password=None):
         self.pa_ip = pa_ip
+        self.username = username
+        self.password = password
         self.session = {}
         self.key = 0
-        self.login(self.pa_ip, username, password)
+        self.device_group = None
+        self.template_name = None
+
+        if self.pa_ip:
+            self.login(self.pa_ip, username, password)
+ 
 
     # Called from init(), login to the Palo Alto
     def login(self, pa_ip, username, password):
