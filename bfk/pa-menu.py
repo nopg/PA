@@ -371,7 +371,7 @@ if __name__ == "__main__":
     elif len(sys.argv) != 3:
         print("\nplease provide the following arguments:")
         print(
-            "\tpython3 becu.py <PA/Panorama IP> <username>\n\n"
+            "\tpython pa-menu.py <PA/Panorama IP> <username>\n\n"
         )
         sys.exit(0)
     else:
