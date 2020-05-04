@@ -18,7 +18,7 @@ Tested:
     PA VM100
 
 Example usage:
-        import xml_api_lib_pa as pa
+        import api_lib_pa as pa
         # export example:
         obj = pa.get_xml_request_pa(call_type="config",action="show",xpath="")
         # import example:
@@ -59,6 +59,7 @@ XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/tem
 XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
 XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
 XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
+XPATH_NETWORK_INTERFACES = "/config/devices/entry[@name='localhost.localdomain']/network/interface"
 
 #########################################################################################################
 
