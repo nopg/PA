@@ -30,7 +30,7 @@ Example usage:
         Password: 
 
 Cautions:
-    This script uses 2 global dictionaries (global for easy end-user modification)
+    This script uses 2 global dictionaries found in zone_settings.py (global for easy end-user modification)
      - EXISTING_PRIVATE_ZONES
         type 'dictionary'
         The key is any (typically trusted) zone name that should be updated, due to intra-zone conversion.
@@ -59,24 +59,9 @@ import copy
 
 import xmltodict
 import api_lib_pa as pa_api
+import zone_settings as settings
 
-
-####### EDIT BELOW ############################################################################
-
-# Using 'python becu.py <filename>' from cli will disable PUSH_CONFIG_TO_PA automatically
-# As well as load security rules from <filename> instead of connecting to a PA
-PUSH_CONFIG_TO_PA = False
-
-NEW_PRIVATE_INTRAZONE = "NEW-PRIVATE-ZONE-NAME"
-EXISTING_PRIVATE_ZONES = {
-    "dmz":"NEW-DMZ-OBJ", 
-    "trusted":"NEW-TRUST-OBJ",
-    "onprem":"NEW-ONPREM-OBJ",
-    "untrusted":"NEW-UNTRUST-OBJ",
-}
-
-####### EDIT ABOVE ############################################################################
-
+###############################################################################################
 
 def grab_xml_or_json_file(filename):
     """
@@ -127,7 +112,7 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
         fout.write(prettyxml)
         print(f"\nOutput at: {filename}\n")
 
-    if PUSH_CONFIG_TO_PA:
+    if settings.PUSH_CONFIG_TO_PA:
         # Ask for filename
         print("\n\tUploading to PA/Panorama:")
         new_filename = input(f"\tFilename[{filename}]: ")
@@ -178,7 +163,8 @@ def modify_rules(security_rules):
         The bulk of the logic for zone modification is done here
         Source & destination behave the same, this allows the same code to be used for both.
 
-        :param srcdst: the xml tag needed for insertion into the new rule
+        :param srcdst: the xml ZONE tag needed for insertion into the new rule
+        :param tofrom: the xml Address-Object tag needed for insertion into the new rule
         :param x_zone: from or to, zone name
         :param x_addr: source or destination, address/group object
         """
@@ -187,14 +173,14 @@ def modify_rules(security_rules):
             if isinstance(x_zone, list):
                 count = 0
                 for zone in x_zone: 
-                    if zone in EXISTING_PRIVATE_ZONES:
+                    if zone in settings.EXISTING_PRIVATE_ZONES:
                         # Zone found, update this zone to the new private intra-zone
                         newrule[tofrom]["member"].remove(zone)
-                        if NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
-                            newrule[tofrom]["member"].append(NEW_PRIVATE_INTRAZONE)
+                        if settings.NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
+                            newrule[tofrom]["member"].append(settings.NEW_PRIVATE_INTRAZONE)
 
                         # Get the address/group object associated to this zone
-                        new_addr_obj = EXISTING_PRIVATE_ZONES[zone]
+                        new_addr_obj = settings.EXISTING_PRIVATE_ZONES[zone]
 
                         if isinstance(x_addr, list):
                             for x in x_addr:
@@ -215,12 +201,12 @@ def modify_rules(security_rules):
                     else:
                         print(f"'{zone}' not found in existing private zone list")
 
-            elif x_zone in EXISTING_PRIVATE_ZONES:
+            elif x_zone in settings.EXISTING_PRIVATE_ZONES:
                 # Zone found, update this zone to the new private intra-zone
-                newrule[tofrom]["member"] = NEW_PRIVATE_INTRAZONE
+                newrule[tofrom]["member"] = settings.NEW_PRIVATE_INTRAZONE
 
                 # Get the address/group object associated to this zone
-                new_addr_obj = EXISTING_PRIVATE_ZONES[x_zone]
+                new_addr_obj = settings.EXISTING_PRIVATE_ZONES[x_zone]
                 if isinstance(x_addr, list):
                     for x in x_addr:
                         if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
@@ -269,7 +255,6 @@ def becu(pa_ip, username, password, pa_type, filename=None):
     if pa_type != "xml":
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
     to_output = []
-
 
     if pa_type == "xml":
         # Grab 'start' time
@@ -336,7 +321,7 @@ if __name__ == "__main__":
 
     # Guidance on how to use the script
     if len(sys.argv) == 2:
-        PUSH_CONFIG_TO_PA = False
+        settings.PUSH_CONFIG_TO_PA = False
         filename = sys.argv[1]
         becu("n/a","n/a","n/a","xml",filename)
         sys.exit(0)
