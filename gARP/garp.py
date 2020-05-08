@@ -402,9 +402,23 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         REST_NATRULES = mem.REST_POST_NATRULES_PAN
         REST_POST_NATRULES = REST_NATRULES.replace("TEMPLATE_NAME", template_name)
         REST_POST_NATRULES = REST_NATRULES.replace("DEVICE_GROUP", mem.device_group)
+
+        # Grab NAT Rules (REST, 9.0+)
+        pre_nat_output = mem.fwconn.grab_api_output(
+            "rest", REST_PRE_NATRULES, f"{mem.root_folder}/pre-natrules.json"
+        )
+        post_nat_output = mem.fwconn.grab_api_output(
+            "rest", REST_POST_NATRULES, f"{mem.root_folder}/post-natrules.json"
+        )
+    
     else:
         XPATH_INTERFACES = mem.XPATH_INTERFACES
         REST_NATRULES = mem.REST_NATRULES
+        # Grab NAT Rules (REST, 9.0+)
+        pre_nat_output = None
+        post_nat_output = mem.fwconn.grab_api_output(
+            "rest", REST_NATRULES, f"{mem.root_folder}/pa-natrules.json"
+        )
 
     start = time.perf_counter()
     
@@ -413,22 +427,17 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         "xml", XPATH_INTERFACES, f"{mem.root_folder}/interfaces.xml"
     )
 
-    # Grab NAT Rules (REST, 9.0+)
-    pre_nat_output = mem.fwconn.grab_api_output(
-        "rest", REST_PRE_NATRULES, f"{mem.root_folder}/pre-natrules.json"
-   )
-    post_nat_output = mem.fwconn.grab_api_output(
-        "rest", REST_POST_NATRULES, f"{mem.root_folder}/post-natrules.json"
-   )
+
 
     if int_output["response"]["result"]["@count"] == "0":
         print("\nNo interfaces found, check interfaces.xml for API Reply\n")
 
-    if pre_nat_output["result"]["@count"] == "0":
-        print("\nNo Pre NAT Rules found, check pre-natrules.json for API Reply\n")
+    if pre_nat_output:
+        if pre_nat_output["result"]["@count"] == "0":
+            print("\nNo Pre NAT Rules found, check pre-natrules.json for API Reply\n")
 
     if post_nat_output["result"]["@count"] == "0":
-        print("\nNo Post NAT Rules found, check post-natrules.json for API Reply\n")
+        print("\nNo NAT Rules found, check natrules.json for API Reply\n")
 
     # Parse XML to get to what we need closer to a dictionary
     eth_entries = (
@@ -440,7 +449,8 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         .get("interface")
         .get("aggregate-ethernet")
     )
-    pre_nat_entries = pre_nat_output.get("result").get("entry")
+    if pre_nat_output:
+        pre_nat_entries = pre_nat_output.get("result").get("entry")
     post_nat_entries = post_nat_output.get("result").get("entry")
 
     # Interfaces
@@ -470,16 +480,18 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     mem.garp_commands.append(
         "-------------------------ARP FOR NAT-----------------------"
     )
-    garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
+    if pre_nat_output:
+        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
     garp_post_nat_commands = build_garp_natrules(post_nat_entries)
 
-    for command in garp_pre_nat_commands:
-        if isinstance(command, list):
-            for ip in command:
-                if ip:
-                    mem.garp_commands.append(ip)
-        elif command:
-            mem.garp_commands.append(command)
+    if pre_nat_output:
+        for command in garp_pre_nat_commands:
+            if isinstance(command, list):
+                for ip in command:
+                    if ip:
+                        mem.garp_commands.append(ip)
+            elif command:
+                mem.garp_commands.append(command)
 
     for command in garp_post_nat_commands:
         if isinstance(command, list):
