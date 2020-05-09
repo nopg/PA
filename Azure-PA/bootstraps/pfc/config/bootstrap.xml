@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<config version="9.1.0" urldb="paloaltonetworks">
+<config version="9.0.0" urldb="paloaltonetworks">
   <mgt-config>
     <users>
       <entry name="admin">
@@ -11,7 +11,7 @@
         </permissions>
       </entry>
       <entry name="sysadmin">
-        <phash>$1$qddisonk$SBWB/kdlwyPpw6QF/KyE/0</phash>
+        <phash>$1$bxshqvgr$pU0iUcBPkAZJk3hOPsztF1</phash>
         <permissions>
           <role-based>
             <superuser>yes</superuser>
@@ -254,40 +254,7 @@
           </crypto-profiles>
         </ike>
         <qos>
-          <profile>
-            <entry name="default">
-              <class-bandwidth-type>
-                <mbps>
-                  <class>
-                    <entry name="class1">
-                      <priority>real-time</priority>
-                    </entry>
-                    <entry name="class2">
-                      <priority>high</priority>
-                    </entry>
-                    <entry name="class3">
-                      <priority>high</priority>
-                    </entry>
-                    <entry name="class4">
-                      <priority>medium</priority>
-                    </entry>
-                    <entry name="class5">
-                      <priority>medium</priority>
-                    </entry>
-                    <entry name="class6">
-                      <priority>low</priority>
-                    </entry>
-                    <entry name="class7">
-                      <priority>low</priority>
-                    </entry>
-                    <entry name="class8">
-                      <priority>low</priority>
-                    </entry>
-                  </class>
-                </mbps>
-              </class-bandwidth-type>
-            </entry>
-          </profile>
+          <profile/>
         </qos>
         <virtual-router>
           <entry name="default">
@@ -323,17 +290,17 @@
               <ip>
                 <static-route>
                   <entry name="default">
-                    <path-monitor>
-                      <enable>no</enable>
-                      <failure-condition>any</failure-condition>
-                      <hold-time>2</hold-time>
-                    </path-monitor>
                     <nexthop>
                       <ip-address>VNet Public Gateway</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
                     <interface>ethernet1/1</interface>
                     <metric>10</metric>
                     <destination>0.0.0.0/0</destination>
@@ -348,7 +315,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>WebApp Public IP</ip-address>
+                      <ip-address>VNet Public Gateway</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -361,17 +328,17 @@
                     </route-table>
                   </entry>
                   <entry name="WebApp Private">
-                    <path-monitor>
-                      <enable>no</enable>
-                      <failure-condition>any</failure-condition>
-                      <hold-time>2</hold-time>
-                    </path-monitor>
                     <nexthop>
                       <ip-address>VNet Private Gateway</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
                     <interface>ethernet1/2</interface>
                     <metric>10</metric>
                     <destination>WebApp Private IP</destination>
@@ -412,7 +379,7 @@
             <disable-telnet>yes</disable-telnet>
             <disable-http>yes</disable-http>
           </service>
-          <hostname>PaloAltoVM1</hostname>
+          <hostname>pavm1</hostname>
           <dns-setting>
             <servers>
               <primary>168.63.129.16</primary>
@@ -440,7 +407,7 @@
           <management>
             <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
             <initcfg>
-              <hostname>PaloAltoVM1</hostname>
+              <hostname>pavm1</hostname>
               <username>sysadmin</username>
               <type>
                 <dhcp-client>
@@ -597,22 +564,28 @@
               <ip-netmask>168.63.129.16/32</ip-netmask>
             </entry>
             <entry name="Private Interface">
-              <ip-netmask>10.5.0.6</ip-netmask>
+              <ip-netmask>10.252.82.10</ip-netmask>
             </entry>
             <entry name="Public Interface">
-              <ip-netmask>172.16.1.6</ip-netmask>
+              <ip-netmask>10.252.81.10</ip-netmask>
             </entry>
             <entry name="WebApp Private IP">
-              <ip-netmask>30.40.50.60/32</ip-netmask>
+              <ip-netmask>10.252.82.4</ip-netmask>
             </entry>
             <entry name="WebApp Public IP">
-              <ip-netmask>51.143.105.24/32</ip-netmask>
+              <ip-netmask>52.188.181.79</ip-netmask>
             </entry>
             <entry name="VNet Private Gateway">
-              <ip-netmask>172.16.1.1/32</ip-netmask>
+              <ip-netmask>10.252.82.1</ip-netmask>
             </entry>
             <entry name="VNet Public Gateway">
-              <ip-netmask>172.16.0.1/32</ip-netmask>
+              <ip-netmask>10.252.81.1</ip-netmask>
+            </entry>
+            <entry name="Conductor Private IP">
+              <ip-netmask>30.40.50.60/32</ip-netmask>
+            </entry>
+            <entry name="Conductor Public IP">
+              <ip-netmask>51.143.105.24/32</ip-netmask>
             </entry>
           </address>
         </entry>

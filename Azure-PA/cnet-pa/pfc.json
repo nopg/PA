@@ -67,6 +67,13 @@
                 "description": "Password for the administrator account on the PA"
             }
         },
+        "fwAvSet": {
+            "type": "string",
+            "metadata": {
+                "description": "Availability Set name for Firewalls"
+            },
+            "defaultValue": "PaloAlto-AS"
+        },
         "vmSize": {
             "type": "string",
             "allowedValues": [
@@ -89,7 +96,7 @@
                 "7.1.1",
                 "8.0.0",
                 "8.1.0",
-                "9.0.0",
+                "9.0.6",
                 "latest"
             ],
             "metadata": {
@@ -248,6 +255,19 @@
         "customDataField": "[concat('storage-account=', parameters('bootstrapStorageAccount'), ',access-key=', parameters('storageAccountAccessKey'), ',file-share=', parameters('storageAccountFileShare'),',share-directory=', parameters('storageAccountFileShareDirectory'))]"
     },
     "resources": [
+        {
+            "type": "Microsoft.Compute/availabilitySets",
+            "name": "[parameters('fwAvSet')]",
+            "apiVersion": "2018-10-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Aligned"
+            },
+            "properties": {
+                "platformFaultDomainCount": "2",
+                "platformUpdateDomainCount": "2"
+            }
+        },
          {
             "apiVersion": "2017-06-01",
             "type": "Microsoft.Network/networkSecurityGroups",
@@ -434,7 +454,7 @@
             }
         },
         {
-            "apiVersion": "2015-06-15",
+            "apiVersion": "2016-12-01",
             "type": "Microsoft.Network/virtualNetworks",
             "name": "[parameters('vNetName')]",
             "location": "[parameters('resourceLocation')]",
@@ -536,7 +556,8 @@
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
                 "[concat('Microsoft.Network/publicIPAddresses/', variables('fwUntrustPublicIPName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
+                "[concat('Microsoft.Network/loadBalancers/', parameters('extLBName'))]"
             ],
             "apiVersion": "2015-06-15",
             "properties": {
@@ -552,7 +573,12 @@
                             },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'),'Public')]"
-                            }
+                            },
+                            "loadBalancerBackendAddressPools": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/backendAddressPools/', parameters('backendName')))]"
+                                }
+                            ]
                         }
                     }
                 ]
@@ -590,7 +616,8 @@
             "dependsOn": [
                 "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '0')]",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '1')]",
-                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '2')]"
+                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '2')]",
+                "[concat('Microsoft.Compute/availabilitySets/', parameters('fwAvSet'))]"
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
@@ -598,6 +625,9 @@
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets/', parameters('fwAvSet'))]"
+                },
                 "hardwareProfile": {
                     "vmSize": "[parameters('vmSize')]"
                 },
@@ -713,13 +743,13 @@
                     {
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('webLBFrontEndName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers/', parameters('extLBName')), concat('/frontendIpConfigurations/', parameters('webLBFrontEndName')))]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('backendName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers/', parameters('extLBName')), concat('/backendAddressPools/', parameters('backendName')))]"
                             },
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('httpsProbeName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers/', parameters('extLBName')), concat('/probes/', parameters('httpsProbeName')))]"
                             },
                             "protocol": "Tcp",
                             "frontendPort": 443,
@@ -732,13 +762,13 @@
                     {
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('webLBFrontEndName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/frontendIpConfigurations/', parameters('webLBFrontEndName')))]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('backendName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/backendAddressPools/', parameters('backendName')))]"
                             },
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('httpsProbeName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/probes/', parameters('httpsProbeName')))]"
                             },
                             "protocol": "Tcp",
                             "frontendPort": 80,
@@ -751,13 +781,13 @@
                     {
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('conductorLBFrontEndName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/frontendIpConfigurations/', parameters('conductorLBFrontEndName')))]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('backendName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/backendAddressPools/', parameters('backendName')))]"
                             },
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('httpsProbeName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/probes/', parameters('httpsProbeName')))]"
                             },
                             "protocol": "Tcp",
                             "frontendPort": 443,
@@ -770,13 +800,13 @@
                     {
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('conductorLBFrontEndName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/frontendIpConfigurations/', parameters('conductorLBFrontEndName')))]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('backendName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/backendAddressPools/', parameters('backendName')))]"
                             },
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), parameters('httpsProbeName'))]"
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('extLBName')), concat('/probes/', parameters('httpsProbeName')))]"
                             },
                             "protocol": "Tcp",
                             "frontendPort": 80,
