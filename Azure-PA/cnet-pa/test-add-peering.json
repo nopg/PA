@@ -1,0 +1,36 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "routeTables_Management_RT_name": {
+            "defaultValue": "Management-RT",
+            "type": "String"
+        },
+        "existingOnPremVirtualNetworkName": {
+            "type": "String",
+            "defaultValue": "vnetonprem1"
+        },
+        "existingOnPremVirtualNetworkResourceGroupName": {
+            "type": "String",
+            "defaultValue": "vnetpeer"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "apiVersion": "2019-11-01",
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "name": "myvnet/pavnet-to-onprem",
+            "location": "westus",
+            "properties": {
+            "allowVirtualNetworkAccess": true,
+            "allowForwardedTraffic": true,
+            "allowGatewayTransit": false,
+            "useRemoteGateways": false,
+            "remoteVirtualNetwork": {
+                "id": "[resourceId(parameters('existingonPremVirtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks', parameters('existingOnPremVirtualNetworkName'))]"
+                }
+            }
+        }
+    ]
+}

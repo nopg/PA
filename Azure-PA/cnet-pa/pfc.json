@@ -134,6 +134,20 @@
                 "description": "Private Static IP Address for PA"
             }
         },
+        "fwManagementPublicIPName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of Azure Public IP for PA Management Interface"
+            },
+            "defaultValue": "palo-management-public"
+        },
+        "fwUntrustPublicIPName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of Azure Public IP for PA Untrust Interface"
+            },
+            "defaultValue": "palo-untrust-public"
+        },
         "bootstrapStorageAccount": {
             "defaultValue": "cnetpalopublic",
             "type": "string",
@@ -244,11 +258,21 @@
             "metadata": {
                 "description": "Name for Load Balancing Rule - Conductor - tcp/80"
             }
+        },
+        "existingOnPremVirtualNetworkName": {
+            "type": "String",
+            "defaultValue": "on-prem vnet name"
+        },
+        "existingOnPremVirtualNetworkResourceGroupName": {
+            "type": "String",
+            "defaultValue": "resource group name"
+        },
+        "vNetPeeringName": {
+            "type": "String",
+            "defaultValue": "pavnet-to-onprem"
         }
     },
     "variables": {
-        "fwManagementPublicIPName": "[concat(parameters('paloVMName'),'-mgmt-ip')]",
-        "fwUntrustPublicIPName": "[concat(parameters('paloVMName'),'-untrust-ip')]",
         "imagePublisher": "paloaltonetworks",
         "imageOffer": "vmseries1",
         "fwNicName": "[concat(parameters('paloVMName'), '-eth')]",
@@ -359,7 +383,7 @@
             }
         },
         {
-            "name": "[variables('fwManagementPublicIPName')]",
+            "name": "[parameters('fwManagementPublicIPName')]",
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2017-10-01",
             "location": "[parameters('resourceLocation')]",
@@ -372,7 +396,7 @@
             }
         },
         {
-            "name": "[variables('fwUntrustPublicIPName')]",
+            "name": "[parameters('fwUntrustPublicIPName')]",
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2017-10-01",
             "location": "[parameters('resourceLocation')]",
@@ -405,6 +429,13 @@
                             "addressPrefix": "[parameters('managementAddressPrefix')]",
                             "nextHopType": "None"
                         }
+                    },
+                    {
+                        "name": "Blackhole-Public",
+                        "properties": {
+                            "addressPrefix": "[parameters('publicAddressPrefix')]",
+                            "nextHopType": "None"
+                        }
                     }
                 ],
                 "disableBgpRoutePropagation": false
@@ -430,6 +461,13 @@
                             "addressPrefix": "[parameters('privateAddressPrefix')]",
                             "nextHopType": "None"
                         }
+                    },
+                    {
+                        "name": "On-Prem-Connectivity",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/8",
+                            "nextHopType": "VirtualNetworkGateway"
+                        }
                     }
                 ],
                 "disableBgpRoutePropagation": false
@@ -446,6 +484,13 @@
                         "name": "Blackhole-Management",
                         "properties": {
                             "addressPrefix": "[parameters('managementAddressPrefix')]",
+                            "nextHopType": "None"
+                        }
+                    },
+                    {
+                        "name": "Blackhole-Private",
+                        "properties": {
+                            "addressPrefix": "[parameters('privateAddressPrefix')]",
                             "nextHopType": "None"
                         }
                     }
@@ -524,12 +569,30 @@
             }
         },
         {
+            "apiVersion": "2019-11-01",
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "name": "[concat(parameters('vNetName'), '/', parameters('vNetPeeringName'))]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
+            ],
+            "location": "[parameters('resourceLocation')]",
+            "properties": {
+            "allowVirtualNetworkAccess": true,
+            "allowForwardedTraffic": true,
+            "allowGatewayTransit": false,
+            "useRemoteGateways": false,
+            "remoteVirtualNetwork": {
+                "id": "[resourceId(parameters('existingonPremVirtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks', parameters('existingOnPremVirtualNetworkName'))]"
+                }
+            }
+        },
+        {
             "name": "[concat(variables('fwNicName'), '0')]",
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', variables('fwManagementPublicIPName'))]",
+                "[concat('Microsoft.Network/publicIPAddresses/', parameters('fwManagementPublicIPName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
             ],
             "properties": {
@@ -540,7 +603,7 @@
                             "privateIPAllocationMethod": "Static",
                             "privateIPAddress": "[parameters('fwManagementPrivateIPAddress')]",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwManagementPublicIPName'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('fwManagementPublicIPName'))]"
                             },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'), 'Management')]"
@@ -555,9 +618,9 @@
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', variables('fwUntrustPublicIPName'))]",
+                "[concat('Microsoft.Network/publicIPAddresses/', parameters('fwUntrustPublicIPName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
-                "[concat('Microsoft.Network/loadBalancers/', parameters('extLBName'))]"
+                "[resourceId('Microsoft.Network/loadBalancers/', parameters('extLBName'))]"
             ],
             "apiVersion": "2015-06-15",
             "properties": {
@@ -569,7 +632,7 @@
                             "privateIPAllocationMethod": "Static",
                             "privateIPAddress": "[parameters('fwPublicPrivateIPAddress')]",
                             "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('fwUntrustPublicIPName'))]"
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('fwUntrustPublicIPName'))]"
                             },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'),'Public')]"
@@ -709,7 +772,6 @@
             },
             "dependsOn": [
                 "[concat('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
-                "[concat('Microsoft.Network/networkInterfaces/', variables('fwNicName'), '1')]",
                 "[concat('Microsoft.Network/publicIPAddresses/', parameters('webPublicIPName'))]",
                 "[concat('Microsoft.Network/publicIPAddresses/', parameters('conductorPublicIPName'))]"
             ],
