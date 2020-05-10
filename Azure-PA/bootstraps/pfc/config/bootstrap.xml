@@ -11,7 +11,7 @@
         </permissions>
       </entry>
       <entry name="sysadmin">
-        <phash>$1$bxshqvgr$pU0iUcBPkAZJk3hOPsztF1</phash>
+        <phash>$1$ksnpbdtj$hXdl5XOHcIGm4P2JLl8W20</phash>
         <permissions>
           <role-based>
             <superuser>yes</superuser>
@@ -118,7 +118,6 @@
                 <dhcp-client>
                   <create-default-route>no</create-default-route>
                 </dhcp-client>
-                <interface-management-profile>MP-Private</interface-management-profile>
                 <lldp>
                   <enable>no</enable>
                 </lldp>
@@ -141,12 +140,8 @@
               </permitted-ip>
               <https>yes</https>
             </entry>
-            <entry name="MP-Private">
-              <permitted-ip>
-                <entry name="168.63.129.16/32"/>
-              </permitted-ip>
-              <https>yes</https>
-            </entry>
+            <deleted name="MP-Private" admin="sysadmin" dirtyId="3" time="2020/05/10 13:39:16"/>
+            <deleted name="MP-Private" admin="sysadmin" dirtyId="3" time="2020/05/10 13:39:16"/>
           </interface-management-profile>
         </profiles>
         <ike>
@@ -548,6 +543,31 @@
                     <translated-address>WebApp Private IP</translated-address>
                   </destination-translation>
                 </entry>
+                <entry name="Inbound-Conductor" uuid="6919e506-193a-4fc3-88cd-8ffb7d2f09c3">
+                  <source-translation>
+                    <dynamic-ip-and-port>
+                      <interface-address>
+                        <interface>ethernet1/2</interface>
+                      </interface-address>
+                    </dynamic-ip-and-port>
+                  </source-translation>
+                  <to>
+                    <member>Public</member>
+                  </to>
+                  <from>
+                    <member>Public</member>
+                  </from>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>Conductor Public IP</member>
+                  </destination>
+                  <service>any</service>
+                  <destination-translation>
+                    <translated-address>Conductor Private IP</translated-address>
+                  </destination-translation>
+                </entry>
               </rules>
             </nat>
           </rulebase>
@@ -573,7 +593,7 @@
               <ip-netmask>10.252.82.4</ip-netmask>
             </entry>
             <entry name="WebApp Public IP">
-              <ip-netmask>52.188.181.79</ip-netmask>
+              <ip-netmask>13.83.103.241</ip-netmask>
             </entry>
             <entry name="VNet Private Gateway">
               <ip-netmask>10.252.82.1</ip-netmask>
