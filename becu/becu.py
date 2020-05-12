@@ -199,7 +199,9 @@ def modify_rules(security_rules):
                                 newrule[srcdst]["member"] = new_addr_obj
                     # Not Found in Existing List, let the user know just in case.
                     else:
-                        print(f"'{zone}' not found in existing private zone list")
+                        zonenotfound = f"{zone} zone not found, not updating this zone."
+                        print(f"{zonenotfound:<60} Rule Name: '{newrule['@name']:<10}'")
+                       #print(f"{zone} zone not found, not updating this zone. \t\t\tRule Name: '{newrule['@name']:<}'")
 
             elif x_zone in settings.EXISTING_PRIVATE_ZONES:
                 # Zone found, update this zone to the new private intra-zone
@@ -218,7 +220,10 @@ def modify_rules(security_rules):
 
             # Not Found in Existing List, let the user know just in case.
             else:
-                print(f"'{x_zone}' not found in existing private zone list")
+                zonenotfound = f"{x_zone} zone not found, not updating this zone."
+                print(f"{zonenotfound:<60} Rule Name: '{newrule['@name']:<10}'")
+                #print(f"{x_zone} zone not found, not updating this zone. \t\t\tRule Name: '{newrule['@name']:<}'")
+
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
             sys.exit(0)
