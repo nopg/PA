@@ -148,6 +148,13 @@
             },
             "defaultValue": "palo-untrust-public"
         },
+        "fwPrivatePublicIPName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of Azure Public IP for PA Private Interface"
+            },
+            "defaultValue": "palo-private-public"
+        },
         "bootstrapStorageAccount": {
             "defaultValue": "cnetpalopublic",
             "type": "string",
@@ -366,19 +373,6 @@
             "location": "[parameters('resourceLocation')]",
             "properties": {
                 "securityRules": [
-                    {
-                        "name": "AllowAll-Inbound",
-                        "properties": {
-                            "protocol": "*",
-                            "sourcePortRange": "*",
-                            "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "*",
-                            "access": "Allow",
-                            "direction": "Inbound",
-                            "priority": 100
-                        }
-                    }
                 ]
             }
         },
@@ -397,6 +391,19 @@
         },
         {
             "name": "[parameters('fwUntrustPublicIPName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2017-10-01",
+            "location": "[parameters('resourceLocation')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+            }
+        },
+        {
+            "name": "[parameters('fwPrivatePublicIPName')]",
             "type": "Microsoft.Network/publicIPAddresses",
             "apiVersion": "2017-10-01",
             "location": "[parameters('resourceLocation')]",
@@ -435,6 +442,13 @@
                         "properties": {
                             "addressPrefix": "[parameters('publicAddressPrefix')]",
                             "nextHopType": "None"
+                        }
+                    },
+                    {
+                        "name": "Conductor-Public-IP",
+                        "properties": {
+                            "addressPrefix": "40.83.178.5/32",
+                            "nextHopType": "Internet"
                         }
                     }
                 ],
@@ -653,6 +667,7 @@
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', parameters('fwPrivatePublicIPName'))]",
                 "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
             ],
             "properties": {
@@ -663,6 +678,9 @@
                         "properties": {
                             "privateIPAllocationMethod": "Static",
                             "privateIPAddress": "[parameters('fwPrivateIPAddress')]",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('fwPrivatePublicIPName'))]"
+                            },
                             "subnet": {
                                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets/',parameters('vNetName'), 'Private')]"
                             }

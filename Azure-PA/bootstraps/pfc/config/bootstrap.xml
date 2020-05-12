@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<config version="9.0.0" urldb="paloaltonetworks">
+<config version="9.1.0" urldb="paloaltonetworks">
   <mgt-config>
     <users>
       <entry name="admin">
@@ -11,7 +11,7 @@
         </permissions>
       </entry>
       <entry name="sysadmin">
-        <phash>$1$ksnpbdtj$hXdl5XOHcIGm4P2JLl8W20</phash>
+        <phash>$1$otwjxnvq$CEXgPN85PJMhcqNjnkFBc/</phash>
         <permissions>
           <role-based>
             <superuser>yes</superuser>
@@ -302,17 +302,17 @@
                     </route-table>
                   </entry>
                   <entry name="Azure-probe">
-                    <path-monitor>
-                      <enable>no</enable>
-                      <failure-condition>any</failure-condition>
-                      <hold-time>2</hold-time>
-                    </path-monitor>
                     <nexthop>
                       <ip-address>VNet Public Gateway</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
                     <interface>ethernet1/1</interface>
                     <metric>10</metric>
                     <destination>168.63.129.16/32</destination>
@@ -335,6 +335,25 @@
                     <interface>ethernet1/2</interface>
                     <metric>10</metric>
                     <destination>WebApp Private IP</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Conductor Private">
+                    <nexthop>
+                      <ip-address>VNet Private Gateway</ip-address>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <interface>ethernet1/2</interface>
+                    <metric>10</metric>
+                    <destination>Conductor Private IP</destination>
                     <route-table>
                       <unicast/>
                     </route-table>
@@ -462,6 +481,37 @@
                   </source>
                   <destination>
                     <member>WebApp Public IP</member>
+                  </destination>
+                  <source-user>
+                    <member>any</member>
+                  </source-user>
+                  <category>
+                    <member>any</member>
+                  </category>
+                  <application>
+                    <member>ssl</member>
+                    <member>web-browsing</member>
+                  </application>
+                  <service>
+                    <member>application-default</member>
+                  </service>
+                  <hip-profiles>
+                    <member>any</member>
+                  </hip-profiles>
+                  <action>allow</action>
+                </entry>
+                <entry name="Inbound-Conductor" uuid="a66664ab-940f-485d-89f4-c5aa7c9c0d77">
+                  <to>
+                    <member>Private</member>
+                  </to>
+                  <from>
+                    <member>Public</member>
+                  </from>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>Conductor Public IP</member>
                   </destination>
                   <source-user>
                     <member>any</member>
