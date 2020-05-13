@@ -196,13 +196,13 @@ def modify_rules(security_rules):
                                 newrule[srcdst]["member"].append(new_addr_obj)
                             else:
                                 count += 1
-                                newrule[srcdst]["member"] = new_addr_obj
+                                newrule[ srcdst]["member"] = new_addr_obj
                     # Not Found in Existing List, let the user know just in case.
                     else:
-                        zonenotfound = f"{zone} zone not found, not updating this zone."
-                        print(f"{zonenotfound:<60} Rule Name: '{newrule['@name']:<10}'")
-                       #print(f"{zone} zone not found, not updating this zone. \t\t\tRule Name: '{newrule['@name']:<}'")
-
+                        zonenotfound = f"{zone:<15} zone not found, not updating this zone."
+                        rulename = f"Rule Name: {newrule['@name']}"
+                        print(f"{rulename:<50}\t{zonenotfound:<10}")
+                        
             elif x_zone in settings.EXISTING_PRIVATE_ZONES:
                 # Zone found, update this zone to the new private intra-zone
                 newrule[tofrom]["member"] = settings.NEW_PRIVATE_INTRAZONE
@@ -220,9 +220,9 @@ def modify_rules(security_rules):
 
             # Not Found in Existing List, let the user know just in case.
             else:
-                zonenotfound = f"{x_zone} zone not found, not updating this zone."
-                print(f"{zonenotfound:<60} Rule Name: '{newrule['@name']:<10}'")
-                #print(f"{x_zone} zone not found, not updating this zone. \t\t\tRule Name: '{newrule['@name']:<}'")
+                zonenotfound = f"{x_zone:<15} zone not found, not updating this zone."
+                rulename = f"Rule Name: {newrule['@name']}"
+                print(f"{rulename:<50}\t{zonenotfound:<10}")
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
