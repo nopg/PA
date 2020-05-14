@@ -184,49 +184,55 @@ def add_garp_command(ip, ifname):
 def process_interface_entries(entry):
     # Set interface name
     ifname = entry["@name"]
+    commands = []
 
     # Should have an IP
     if "layer3" in entry:
+        found = False
         # Normal IP Address on interface
         if "ip" in entry["layer3"]:
             # Secondary IP Addresses
             if type(entry["layer3"]["ip"]["entry"]) is list:
-                commands = []
                 for xip in entry["layer3"]["ip"]["entry"]:
                     ip = xip["@name"]
+                    found = True
                     mem.ip_to_eth_dict.update({ip: ifname})
                     commands.append(add_garp_command(ip, ifname))
-                return commands
             else:  # Normal 1 IP on 1 interface
+                found = True
                 ip = entry["layer3"]["ip"]["entry"]["@name"]
                 mem.ip_to_eth_dict.update({ip: ifname})
-                return add_garp_command(ip, ifname)
+                commands.append(add_garp_command(ip, ifname))
+
         # Sub Interfaces
-        elif "units" in entry["layer3"]:
+        if "units" in entry["layer3"]:
             # Sub Interfaces
             if entry["layer3"]["units"]["entry"].__len__() > 1:
-                commands = []
                 for subif in entry["layer3"]["units"]["entry"]:
                     # Set new (sub)interface name
                     ifname = subif["@name"]
                     # Secondary IP Addresses
                     if type(subif["ip"]["entry"]) is list:
                         for subif_xip in subif["ip"]["entry"]:
+                            found = True
                             ip = subif_xip["@name"]
                             mem.ip_to_eth_dict.update({ip: ifname})
                             commands.append(add_garp_command(ip, ifname))
                     else:  # Normal 1 IP on Subinterface
+                        found = True
                         ip = subif["ip"]["entry"]["@name"]
                         mem.ip_to_eth_dict.update({ip: ifname})
                         commands.append(add_garp_command(ip, ifname))
-                return commands
             else:  # Can remove this if/else?
                 print("ONLY ONE SUBIF")
-        else:  # Probably DHCP, should be added
+        if not found:  # Probably DHCP, should be added
             error = (
                 f"No IP address found (e1)(DHCP?), {entry['@name']}"
             )
             return error
+        else:
+            return commands
+
     else:  # No 'layer3', no IP Address here.
         error = f"No IP address found (e2), {entry['@name']}"
         return error
@@ -430,6 +436,9 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         int_output = mem.fwconn.grab_api_output(
             "xml", XPATH_INTERFACES, f"{mem.root_folder}/interfaces.xml"
         )
+    else:
+        pre_nat_output = None
+        post_nat_output = None
 
     if not int_output:
         print("\nNo interfaces found, check interfaces.xml for API Reply\n")
