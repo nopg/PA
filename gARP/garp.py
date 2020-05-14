@@ -130,11 +130,11 @@ def address_lookup(entry):
     output = mem.fwconn.grab_api_output("xml", XPATH, f"{mem.root_folder}/address-obj--{filename}.xml")
 
     # Need to check for no response, must be an IP not address
-    if "entry" in output["response"]["result"]:
-        if "ip-netmask" in output["response"]["result"]["entry"]:
-            ips = output["response"]["result"]["entry"]["ip-netmask"]
+    if "entry" in output["result"]:
+        if "ip-netmask" in output["result"]["entry"]:
+            ips = output["result"]["entry"]["ip-netmask"]
         else:
-            add_review_entry(output["response"]["result"]["entry"], "not-ip-netmask")
+            add_review_entry(output["result"]["entry"], "not-ip-netmask")
     else:
         # It must be an IP/Mask already
         ips = entry
@@ -155,20 +155,20 @@ def grab_panorama_objects():
     template_names = []
 
     # Need to check for no response, must be an IP not address
-    if "entry" in temp_device_groups["response"]["result"]["device-group"]:
-        for entry in temp_device_groups["response"]["result"]["device-group"]["entry"]:
+    if "entry" in temp_device_groups["result"]["device-group"]:
+        for entry in temp_device_groups["result"]["device-group"]["entry"]:
             device_groups.append(entry["@name"])
     else:
         print(f"Error, Panorama chosen but no Device Groups found.")
         sys.exit(0)
 
    # Need to check for no response, must be an IP not address
-    if "entry" in temp_template_names["response"]["result"]["template"]:
-        if isinstance(temp_template_names["response"]["result"]["template"]["entry"],list):
-            for entry in temp_template_names["response"]["result"]["template"]["entry"]:
+    if "entry" in temp_template_names["result"]["template"]:
+        if isinstance(temp_template_names["result"]["template"]["entry"],list):
+            for entry in temp_template_names["result"]["template"]["entry"]:
                 template_names.append(entry["@name"])
         else:
-            template_names.append(temp_template_names["response"]["result"]["template"]["entry"]["@name"])
+            template_names.append(temp_template_names["result"]["template"]["entry"]["@name"])
     else:
         print(f"Error, Panorama chosen but no Template Names found.")
         sys.exit(0)
@@ -371,7 +371,7 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     mem.pa_ip = pa_ip
     mem.username = username
     mem.password = password
-    mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password)
+    mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password, pa_or_pan)
     mem.pa_or_pan = pa_or_pan
     mem.root_folder = root_folder
 
@@ -429,7 +429,7 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
 
 
 
-    if int_output["response"]["result"]["@count"] == "0":
+    if int_output["result"]["@count"] == "0":
         print("\nNo interfaces found, check interfaces.xml for API Reply\n")
 
     if pre_nat_output:
@@ -441,11 +441,10 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
 
     # Parse XML to get to what we need closer to a dictionary
     eth_entries = (
-        int_output.get("response").get("result").get("interface").get("ethernet")
+        int_output.get("result").get("interface").get("ethernet")
     )
     ae_entries = (
-        int_output.get("response")
-        .get("result")
+        int_output.get("result")
         .get("interface")
         .get("aggregate-ethernet")
     )
@@ -543,7 +542,7 @@ if __name__ == "__main__":
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
-        paobj = pa.api_lib_pa(pa_ip, username, password)
+        paobj = pa.api_lib_pa(pa_ip, username, password, "test")
     except:
         print(f"Error connecting to: {pa_ip}\nCheck username/password and network connectivity.")
         sys.exit(0)

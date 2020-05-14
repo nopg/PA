@@ -38,6 +38,7 @@ Legal:
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
 
+import requests
 import sys
 import os
 import json
@@ -45,38 +46,20 @@ import xmltodict
 import xml.dom.minidom
 from datetime import datetime
 
-import requests
-
 # Who cares about SSL?
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-#########################################################################################################
 DEBUG = False
-
-XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
-XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
-XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
-XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
-XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
-
-#########################################################################################################
-
 
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
     # Upon creation:
-    def __init__(self, pa_ip, username, password, pa_type):
+    def __init__(self, pa_ip, username, password):
         self.pa_ip = pa_ip
-        self.username = username
-        self.password = password
-        self.pa_type = pa_type
-        self.device_group = None
-        self.template_name = None
         self.session = {}
         self.key = 0
-
         self.login(self.pa_ip, username, password)
 
     # Called from init(), login to the Palo Alto
@@ -115,19 +98,19 @@ class api_lib_pa:
 
         # Pull folder name from string
         end = filename.rfind("/")
-        if end != -1:
-            folder = filename[0:end]
-            timestamp = "/" + \
-            str(datetime.now().year) + '-' + \
-            str(datetime.now().month) + '-' + \
-            str(datetime.now().day) + '--' + \
-            str(datetime.now().hour) + '-' + \
-            str(datetime.now().minute) + '/'
+        folder = filename[0:end]
 
-            filename = folder + timestamp + filename[end:]
+        timestamp = "/" + \
+        str(datetime.now().year) + '-' + \
+        str(datetime.now().month) + '-' + \
+        str(datetime.now().day) + '--' + \
+        str(datetime.now().hour) + '-' + \
+        str(datetime.now().minute) + '/'
+
+        filename = folder + timestamp + filename[end:]
 
         # Create the root folder and subfolder if it doesn't already exist
-            os.makedirs(folder + timestamp, exist_ok=True)
+        os.makedirs(folder + timestamp, exist_ok=True)
 
 
         # Because XML: remove <response/><result/> and <?xml> tags
@@ -191,39 +174,9 @@ class api_lib_pa:
 
         # print("\tCreated: {}\n".format(filename))
 
-
-    # Grab Panorama Device Groups & Templates
-    def grab_panorama_objects(self):
-        temp_device_groups = self.grab_api_output("xml", XPATH_DEVICE_GROUPS)
-        temp_template_names = self.grab_api_output("xml", XPATH_TEMPLATE_NAMES)
-        device_groups = []
-        template_names = []
-
-        # Need to check for no response, must be an IP not address
-        if "entry" in temp_device_groups["result"]["device-group"]:
-            for entry in temp_device_groups["result"]["device-group"]["entry"]:
-                device_groups.append(entry["@name"])
-        else:
-            print(f"Error, Panorama chosen but no Device Groups found.")
-            sys.exit(0)
-
-    # Need to check for no response, must be an IP not address
-        if "entry" in temp_template_names["result"]["template"]:
-            if isinstance(temp_template_names["result"]["template"]["entry"],list):
-                for entry in temp_template_names["result"]["template"]["entry"]:
-                    template_names.append(entry["@name"])
-            else:
-                template_names.append(temp_template_names["result"]["template"]["entry"]["@name"])
-        else:
-            print(f"Error, Panorama chosen but no Template Names found.")
-            sys.exit(0)
-        
-        return device_groups, template_names
-
-
     # GET request for Palo Alto API
     def get_xml_request_pa(
-        self, call_type="config", action="show", xpath=None, element=None,
+        self, call_type="config", action="show", xpath=None, element=None
     ):
         # If no element is sent, should be a 'show' or 'get' action, do not send &element=<element>
         if not element:
@@ -269,31 +222,6 @@ class api_lib_pa:
         # Return string (XML)
         return response.text
 
-
-    # Import Named Configuration
-    def import_named_configuration(
-        self, xml_config, call_type="import", category="configuration"
-    ):
-
-        url = f"https://{self.pa_ip}:443/api?type={call_type}&category={category}&key={self.key}"
-
-        # Make the API call
-        response = self.session[self.pa_ip].post(url, files={'file':xml_config}, verify=False)
-
-        # Extra logging if debugging
-        if DEBUG:
-            print(f"URL = {url}")
-            print(
-                f"\nGET request sent: type={call_type}, category={category}, \n"
-            )
-            print(f"\nResponse Status Code = {response.status_code}")
-            print(f"\nResponse = {response.text}")
-
-        # Return response
-        return response
-
-
-
     def grab_api_output(
         self, xml_or_rest, xpath_or_restcall, filename=None,
     ):
@@ -312,10 +240,10 @@ class api_lib_pa:
             if filename:
                 self.create_xml_files(xml_response, filename)
 
-            # if not xml_response["response"]["result"]:
-            #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
-            #     print(f"Check {filename} for XML API reply")
-            #     sys.exit(0)
+            if not xml_response["response"]["result"]:
+                print("Nothing found on PA/Panorama, are you connecting to the right device?")
+                print(f"Check {filename} for XML API reply")
+                sys.exit(0)
 
         elif xml_or_rest == "rest":
 
@@ -326,9 +254,9 @@ class api_lib_pa:
             if filename:
                 self.create_json_files(json_response, filename)
 
-            # if not json_response["result"]:
-            #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
-            #     print(f"Check {filename} for XML API reply")
+            if not json_response["result"]:
+                print("Nothing found on PA/Panorama, are you connecting to the right device?")
+                print(f"Check {filename} for XML API reply")
 
         if not success:
             # Extra logging when debugging
@@ -344,6 +272,6 @@ class api_lib_pa:
                 )
 
         if xml_or_rest == "xml":
-            return xml_response["response"]
+            return xml_response
         else:
             return json_response
