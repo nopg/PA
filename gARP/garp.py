@@ -237,6 +237,13 @@ def build_garp_interfaces(entries, iftype):
     if entries:
         print(f"\nSearching through {iftype} interfaces")
         
+        entries_ = entries["entry"]
+        if isinstance(entries_, list):
+            pass
+        else:
+            results = process_interface_entries(entries_)
+            return [results]
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(process_interface_entries, entries["entry"])
         
