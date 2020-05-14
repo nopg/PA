@@ -65,10 +65,10 @@ class mem:
     XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
     XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
 
-    REST_NATRULES =     "/restapi/9.0/Policies/NATRules?location=vsys&vsys=vsys1"
-    REST_PRE_NATRULES_PAN = "/restapi/9.0/Policies/NATPreRules?location=device-group&device-group=DEVICE_GROUP"
-    REST_POST_NATRULES_PAN = "/restapi/9.0/Policies/NATPostRules?location=device-group&device-group=DEVICE_GROUP"
-    
+    XPATH_POST_NAT_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/nat/rules"
+    XPATH_PRE_NAT_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/nat/rules"
+    XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/nat/rules"
+
     ip_to_eth_dict = {}
     pa_ip = None
     username = None
@@ -207,6 +207,7 @@ def add_garp_command(ip, ifname):
 def process_interface_entries(entry):
     # Set interface name
     ifname = entry["@name"]
+
     # Should have an IP
     if "layer3" in entry:
         # Normal IP Address on interface
@@ -263,7 +264,7 @@ def build_garp_interfaces(entries, iftype):
     results = None
     if entries:
         print(f"\nSearching through {iftype} interfaces")
-
+        
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(process_interface_entries, entries["entry"])
         
@@ -275,6 +276,7 @@ def build_garp_interfaces(entries, iftype):
 
 def process_nat_entries(entry):
     ip = None
+    
     if "disabled" in entry:
         if entry["disabled"] == "yes":
             add_review_entry(entry, "disabled")
@@ -291,7 +293,10 @@ def process_nat_entries(entry):
             # If it's a dictionary, we have multiple IP's
             if isinstance(addr_obj, dict):
                 ipobjs = []
-                [ipobjs.append(o) for o in addr_obj["member"]]
+                if isinstance(addr_obj["member"], list):
+                    [ipobjs.append(o) for o in addr_obj["member"]]
+                else:
+                    ipobjs.append(addr_obj["member"])
                 # Find the real-ip from the address object
                 for ipobj in ipobjs:
                     ips = address_lookup(ipobj)
@@ -350,8 +355,15 @@ def build_garp_natrules(entries):
         print(f"\nSearching through natrules")
         print("\nPlease wait..\n")
 
+        entries_ = entries["entry"]
+        if isinstance(entries_, list):
+            pass
+        else:
+            results = process_nat_entries(entries_)
+            return [results]
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(process_nat_entries, entries)
+            results = executor.map(process_nat_entries, entries["entry"])
         
         return results
 
@@ -396,28 +408,25 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         XPATH_INTERFACES = mem.XPATH_INTERFACES_PAN
         XPATH_INTERFACES = XPATH_INTERFACES.replace("TEMPLATE_NAME", template_name)
         XPATH_INTERFACES = XPATH_INTERFACES.replace("DEVICE_GROUP", mem.device_group)
-        REST_NATRULES = mem.REST_PRE_NATRULES_PAN
-        REST_PRE_NATRULES = REST_NATRULES.replace("TEMPLATE_NAME", template_name)
-        REST_PRE_NATRULES = REST_NATRULES.replace("DEVICE_GROUP", mem.device_group)
-        REST_NATRULES = mem.REST_POST_NATRULES_PAN
-        REST_POST_NATRULES = REST_NATRULES.replace("TEMPLATE_NAME", template_name)
-        REST_POST_NATRULES = REST_NATRULES.replace("DEVICE_GROUP", mem.device_group)
 
-        # Grab NAT Rules (REST, 9.0+)
+        XPATH_PRE = mem.XPATH_PRE_NAT_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+        XPATH_POST = mem.XPATH_POST_NAT_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+
+        # Grab NAT Rules
         pre_nat_output = mem.fwconn.grab_api_output(
-            "rest", REST_PRE_NATRULES, f"{mem.root_folder}/pre-natrules.json"
+            "xml", XPATH_PRE, f"{mem.root_folder}/pre-natrules.xml"
         )
         post_nat_output = mem.fwconn.grab_api_output(
-            "rest", REST_POST_NATRULES, f"{mem.root_folder}/post-natrules.json"
+            "xml", XPATH_POST, f"{mem.root_folder}/post-natrules.xml"
         )
     
     else:
         XPATH_INTERFACES = mem.XPATH_INTERFACES
-        REST_NATRULES = mem.REST_NATRULES
-        # Grab NAT Rules (REST, 9.0+)
+        XPATH_NATRULES = mem.XPATH_NAT_RULES
+        # Grab NAT Rules 
         pre_nat_output = None
         post_nat_output = mem.fwconn.grab_api_output(
-            "rest", REST_NATRULES, f"{mem.root_folder}/pa-natrules.json"
+            "xml", XPATH_NATRULES, f"{mem.root_folder}/pa-natrules.xml"
         )
 
     start = time.perf_counter()
@@ -428,16 +437,18 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     )
 
 
-
     if int_output["result"]["@count"] == "0":
         print("\nNo interfaces found, check interfaces.xml for API Reply\n")
 
     if pre_nat_output:
-        if pre_nat_output["result"]["@count"] == "0":
+        pre_nat_output = pre_nat_output.get("result")
+        if not pre_nat_output:
             print("\nNo Pre NAT Rules found, check pre-natrules.json for API Reply\n")
 
-    if post_nat_output["result"]["@count"] == "0":
-        print("\nNo NAT Rules found, check natrules.json for API Reply\n")
+    if post_nat_output:
+        post_nat_output = post_nat_output.get("result")
+        if not post_nat_output:
+            print("\nNo NAT Rules found, check natrules.json for API Reply\n")
 
     # Parse XML to get to what we need closer to a dictionary
     eth_entries = (
@@ -449,8 +460,9 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         .get("aggregate-ethernet")
     )
     if pre_nat_output:
-        pre_nat_entries = pre_nat_output.get("result").get("entry")
-    post_nat_entries = post_nat_output.get("result").get("entry")
+        pre_nat_entries = pre_nat_output.get("rules")
+    if post_nat_output:
+        post_nat_entries = post_nat_output.get("rules")
 
     # Interfaces
     mem.garp_commands.append(
@@ -481,7 +493,8 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     )
     if pre_nat_output:
         garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
-    garp_post_nat_commands = build_garp_natrules(post_nat_entries)
+    if post_nat_output:
+        garp_post_nat_commands = build_garp_natrules(post_nat_entries)
 
     if pre_nat_output:
         for command in garp_pre_nat_commands:
@@ -492,13 +505,14 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
             elif command:
                 mem.garp_commands.append(command)
 
-    for command in garp_post_nat_commands:
-        if isinstance(command, list):
-            for ip in command:
-                if ip:
-                    mem.garp_commands.append(ip)
-        elif command:
-            mem.garp_commands.append(command)
+    if post_nat_output:
+        for command in garp_post_nat_commands:
+            if isinstance(command, list):
+                for ip in command:
+                    if ip:
+                        mem.garp_commands.append(ip)
+            elif command:
+                mem.garp_commands.append(command)
 
 
     # Print out all the commands/output!

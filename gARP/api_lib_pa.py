@@ -61,6 +61,11 @@ XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys
 XPATH_POST_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
 XPATH_PRE_SECURITY_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
 
+REST_NATRULES =     "/restapi/9.0/Policies/NATRules?location=vsys&vsys=vsys1"
+REST_PRE_NATRULES_PAN = "/restapi/9.0/Policies/NATPreRules?location=device-group&device-group=DEVICE_GROUP"
+REST_POST_NATRULES_PAN = "/restapi/9.0/Policies/NATPostRules?location=device-group&device-group=DEVICE_GROUP"
+
+
 #########################################################################################################
 
 
