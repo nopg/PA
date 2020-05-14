@@ -42,7 +42,6 @@ Legal:
 from getpass import getpass
 import sys
 import os
-import json
 import ipcalc
 import time
 import concurrent.futures
@@ -130,14 +129,18 @@ def address_lookup(entry):
     output = mem.fwconn.grab_api_output("xml", XPATH, f"{mem.root_folder}/address-obj--{filename}.xml")
 
     # Need to check for no response, must be an IP not address
-    if "entry" in output["result"]:
-        if "ip-netmask" in output["result"]["entry"]:
-            ips = output["result"]["entry"]["ip-netmask"]
+    if output["result"]:
+        if "entry" in output["result"]:
+            if "ip-netmask" in output["result"]["entry"]:
+                ips = output["result"]["entry"]["ip-netmask"]
+            else:
+                add_review_entry(output["result"]["entry"], "not-ip-netmask")
         else:
-            add_review_entry(output["result"]["entry"], "not-ip-netmask")
+            # It must be an IP/Mask already
+            ips = entry
     else:
         # It must be an IP/Mask already
-        ips = entry
+        ips = entry    
 
     if ips is list:
         for ip in ips:
@@ -156,12 +159,12 @@ def add_review_entry(entry, type):
     elif type == "not-ip-netmask":
         mem.review_nats.append(f"non IP-NETMASK used for translated address: '{entry['@name']}' for details.")
 
-        print("Not implemented yet. I can add it easily if you need it. Send me the natrules.json")
+        print("Not implemented yet. I can add it easily if you need it. Send me the natrules.xml")
         print("Most likely an address-object using 'IP Range', 'IP Wildcard Mask', or 'FQDN'.")
         print("For NAT? I know a couple use cases, but maybe manually add this gARP after reviewing.")
         print("May be redundant or otherwise unnecessary.")
 
-    mem.fwconn.create_json_files(entry, f"{mem.root_folder}/review-{entry['@name']}.xml")
+    mem.fwconn.create_xml_files(entry, f"{mem.root_folder}/review-{entry['@name']}.xml")
 
 
 def add_garp_command(ip, ifname):
@@ -422,12 +425,12 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     if pre_nat_output:
         pre_nat_output = pre_nat_output.get("result")
         if not pre_nat_output:
-            print("\nNo Pre NAT Rules found, check pre-natrules.json for API Reply\n")
+            print("\nNo Pre NAT Rules found, check pre-natrules.xml for API Reply\n")
 
     if post_nat_output:
         post_nat_output = post_nat_output.get("result")
         if not post_nat_output:
-            print("\nNo NAT Rules found, check natrules.json for API Reply\n")
+            print("\nNo NAT Rules found, check natrules.xml for API Reply\n")
 
     # Parse XML to get to what we need closer to a dictionary
     eth_entries = (
