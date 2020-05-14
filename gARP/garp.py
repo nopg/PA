@@ -189,6 +189,7 @@ def process_interface_entries(entry):
     # Should have an IP
     if "layer3" in entry:
         found = False
+        errors = []
         # Normal IP Address on interface
         if "ip" in entry["layer3"]:
             # Secondary IP Addresses
@@ -212,48 +213,61 @@ def process_interface_entries(entry):
 
                 for subif in entry["layer3"]["units"]["entry"]:
                     # Set new (sub)interface name
-                    ifname = subif["@name"]
+                    subifname = subif["@name"]
                     # Secondary IP Addresses
-                    if type(subif["ip"]["entry"]) is list:
-                        for subif_xip in subif["ip"]["entry"]:
+                    if "ip" in subif:
+                        if type(subif["ip"]["entry"]) is list:
+                            for subif_xip in subif["ip"]["entry"]:
+                                found = True
+                                ip = subif_xip["@name"]
+                                mem.ip_to_eth_dict.update({ip: subifname})
+                                commands.append(add_garp_command(ip, subifname))
+                        else:  # Normal 1 IP on Subinterface
                             found = True
-                            ip = subif_xip["@name"]
-                            mem.ip_to_eth_dict.update({ip: ifname})
-                            commands.append(add_garp_command(ip, ifname))
-                    else:  # Normal 1 IP on Subinterface
-                        found = True
-                        ip = subif["ip"]["entry"]["@name"]
-                        mem.ip_to_eth_dict.update({ip: ifname})
-                        commands.append(add_garp_command(ip, ifname))
+                            ip = subif["ip"]["entry"]["@name"]
+                            mem.ip_to_eth_dict.update({ip: subifname})
+                            commands.append(add_garp_command(ip, subifname))
+                    else:
+                        err = (
+                            f"No IP address found (e4), {subifname}"
+                        )
+                        errors.append(err)
             else:  
                 # Only one Sub Interface
+                subifname = entry["layer3"]["units"]["entry"]["@name"]
+
                 if "ip" in entry["layer3"]["units"]["entry"]:
 
                     ip = entry["layer3"]["units"]["entry"]["ip"]
-                    ifname = entry["layer3"]["units"]["entry"]["@name"]
 
                     if isinstance(ip, list):
                         for subif_xip in ip:
                             found = True
                             ip = subif_xip["@name"]
-                            mem.ip_to_eth_dict.update({ip: ifname})
-                            commands.append(add_garp_command(ip, ifname))
+                            mem.ip_to_eth_dict.update({ip: subifname})
+                            commands.append(add_garp_command(ip, subifname))
                     else:
                         found = True
                         ip = ip["entry"]["@name"]
-                        mem.ip_to_eth_dict.update({ip: ifname})
-                        commands.append(add_garp_command(ip, ifname))
+                        mem.ip_to_eth_dict.update({ip: subifname})
+                        commands.append(add_garp_command(ip, subifname))
+                else:
+                    err = (
+                        f"No IP address found (e3), {subifname}"
+                    )
+                    errors.append(err)                 
 
         if not found:  # Probably DHCP, should be added
-            error = (
-                f"No IP address found (e1)(DHCP?), {entry['@name']}"
+            err = (
+                f"No IP address found (e1)-(DHCP?), {ifname}"
             )
-            return error
+            errors.append(err)
+            return errors
         else:
             return commands
 
     else:  # No 'layer3', no IP Address here.
-        error = f"No IP address found (e2), {entry['@name']}"
+        error = f"No IP address found (e2), {ifname}"
         return error
 
 
