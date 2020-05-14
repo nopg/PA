@@ -207,7 +207,9 @@ def process_interface_entries(entry):
         # Sub Interfaces
         if "units" in entry["layer3"]:
             # Sub Interfaces
-            if entry["layer3"]["units"]["entry"].__len__() > 1:
+
+            if isinstance(entry["layer3"]["units"]["entry"], list):
+
                 for subif in entry["layer3"]["units"]["entry"]:
                     # Set new (sub)interface name
                     ifname = subif["@name"]
@@ -224,7 +226,24 @@ def process_interface_entries(entry):
                         mem.ip_to_eth_dict.update({ip: ifname})
                         commands.append(add_garp_command(ip, ifname))
             else:  # Can remove this if/else?
-                print("ONLY ONE SUBIF")
+                # Only one Sub Interface
+                if "ip" in entry["layer3"]["units"]["entry"]:
+
+                    ip = entry["layer3"]["units"]["entry"]["ip"]
+                    ifname = entry["layer3"]["units"]["entry"]["@name"]
+
+                    if isinstance(ip, list):
+                        for subif_xip in ip:
+                            found = True
+                            ip = subif_xip["@name"]
+                            mem.ip_to_eth_dict.update({ip: ifname})
+                            commands.append(add_garp_command(ip, ifname))
+                    else:
+                        found = True
+                        ip = ip["entry"]["@name"]
+                        mem.ip_to_eth_dict.update({ip: ifname})
+                        commands.append(add_garp_command(ip, ifname))
+
         if not found:  # Probably DHCP, should be added
             error = (
                 f"No IP address found (e1)(DHCP?), {entry['@name']}"
@@ -541,6 +560,7 @@ if __name__ == "__main__":
     if DEBUG:
         mem.fname = sys.argv[1]
         garp_logic("n/a", "n/a","n/a", "xml")
+        sys.exit(0)
 
     root_folder = None
     # Guidance on how to use the script
