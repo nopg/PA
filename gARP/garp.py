@@ -225,7 +225,7 @@ def process_interface_entries(entry):
                         ip = subif["ip"]["entry"]["@name"]
                         mem.ip_to_eth_dict.update({ip: ifname})
                         commands.append(add_garp_command(ip, ifname))
-            else:  # Can remove this if/else?
+            else:  
                 # Only one Sub Interface
                 if "ip" in entry["layer3"]["units"]["entry"]:
 
