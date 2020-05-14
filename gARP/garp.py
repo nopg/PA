@@ -49,6 +49,8 @@ import concurrent.futures
 import xmltodict
 import api_lib_pa as pa
 
+DEBUG = False
+
 # fmt: off
 # Global Variables, debug & xpath location for each profile type
 # ENTRY = + "/entry[@name='alert-only']"
@@ -365,7 +367,8 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     mem.pa_ip = pa_ip
     mem.username = username
     mem.password = password
-    mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password, pa_or_pan)
+    if not DEBUG:
+        mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password, pa_or_pan)
     mem.pa_or_pan = pa_or_pan
     mem.root_folder = root_folder
 
@@ -402,7 +405,7 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
             "xml", XPATH_POST, f"{mem.root_folder}/post-natrules.xml"
         )
     
-    else:
+    elif mem.pa_or_pan == "pa":
         XPATH_INTERFACES = mem.XPATH_INTERFACES
         XPATH_NATRULES = mem.XPATH_NAT_RULES
         # Grab NAT Rules 
@@ -410,16 +413,25 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
         post_nat_output = mem.fwconn.grab_api_output(
             "xml", XPATH_NATRULES, f"{mem.root_folder}/pa-natrules.xml"
         )
+    elif mem.pa_or_pan == "xml":
+        fin = open(mem.fname, 'r')
+        temp = fin.read()
+        fin.close()
+        int_output = xmltodict.parse(temp)
+        int_output = int_output["response"]
+        # print(int_output["response"])
+        # sys.exit(0)
+         
 
     start = time.perf_counter()
     
     # Grab Interfaces (XML)
-    int_output = mem.fwconn.grab_api_output(
-        "xml", XPATH_INTERFACES, f"{mem.root_folder}/interfaces.xml"
-    )
+    if not DEBUG:
+        int_output = mem.fwconn.grab_api_output(
+            "xml", XPATH_INTERFACES, f"{mem.root_folder}/interfaces.xml"
+        )
 
-
-    if int_output["result"]["@count"] == "0":
+    if not int_output:
         print("\nNo interfaces found, check interfaces.xml for API Reply\n")
 
     if pre_nat_output:
@@ -516,6 +528,10 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
 
 # If run from the command line
 if __name__ == "__main__":
+
+    if DEBUG:
+        mem.fname = sys.argv[1]
+        garp_logic("n/a", "n/a","n/a", "xml")
 
     root_folder = None
     # Guidance on how to use the script
