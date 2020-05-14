@@ -148,34 +148,6 @@ def address_lookup(entry):
     return ips
 
 
-def grab_panorama_objects():
-    temp_device_groups = mem.fwconn.grab_api_output("xml", mem.XPATH_DEVICE_GROUPS, f"{mem.root_folder}/device_groups.xml")
-    temp_template_names = mem.fwconn.grab_api_output("xml", mem.XPATH_TEMPLATE_NAMES, f"{mem.root_folder}/template_names.xml")
-    device_groups = []
-    template_names = []
-
-    # Need to check for no response, must be an IP not address
-    if "entry" in temp_device_groups["result"]["device-group"]:
-        for entry in temp_device_groups["result"]["device-group"]["entry"]:
-            device_groups.append(entry["@name"])
-    else:
-        print(f"Error, Panorama chosen but no Device Groups found.")
-        sys.exit(0)
-
-   # Need to check for no response, must be an IP not address
-    if "entry" in temp_template_names["result"]["template"]:
-        if isinstance(temp_template_names["result"]["template"]["entry"],list):
-            for entry in temp_template_names["result"]["template"]["entry"]:
-                template_names.append(entry["@name"])
-        else:
-            template_names.append(temp_template_names["result"]["template"]["entry"]["@name"])
-    else:
-        print(f"Error, Panorama chosen but no Template Names found.")
-        sys.exit(0)
-    
-    return device_groups, template_names
-
-
 def add_review_entry(entry, type):
     if type == "disabled":
         mem.review_nats.append(f"Disabled Rule: Check {entry['@name']}")
@@ -391,7 +363,7 @@ def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     if mem.pa_or_pan == "panorama":
 
         # Needs Template Name & Device Group
-        device_groups, template_names = grab_panorama_objects()
+        device_groups, template_names = mem.fwconn.grab_panorama_objects()
         print("\nTemplate Names:")
         print("---------------------")
         for template in template_names:
