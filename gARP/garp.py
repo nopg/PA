@@ -229,7 +229,7 @@ def process_interface_entries(entry):
                             commands.append(add_garp_command(ip, subifname))
                     else:
                         err = (
-                            f"No IP address found (e4), {subifname}"
+                            f"No IP address found (e4)-(DHCP?), {subifname}"
                         )
                         errors.append(err)
             else:  
@@ -253,7 +253,7 @@ def process_interface_entries(entry):
                         commands.append(add_garp_command(ip, subifname))
                 else:
                     err = (
-                        f"No IP address found (e3), {subifname}"
+                        f"No IP address found (e3)-(DHCP?), {subifname}"
                     )
                     errors.append(err)                 
 
