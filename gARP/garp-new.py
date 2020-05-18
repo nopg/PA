@@ -56,6 +56,8 @@ class mem:
     ip_to_eth_dict = {}
     garp_commands = []
     review_nats = []
+    address_object_entries = None
+
 # class mem: 
 
 #     XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address/entry[@name='ENTRY_NAME']"
@@ -389,7 +391,16 @@ def build_garp_natrules(entries):
     else:  # No Natrules
         print(f"No nat rules found for 'natrules")
         return []
-    
+
+
+def build_garp_output(command_list):
+    for command in command_list:
+        if isinstance(command,list):
+            for ip in command:
+                mem.garp_commands.append(ip)
+        else:
+            mem.garp_commands.append(command)
+
 
 def validate_output(output_types):
     for output_type, output in output_types.items():
@@ -505,58 +516,30 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
     if pre_nat_output:
         pre_nat_entries = pre_nat_output["result"]["rules"]
     post_nat_entries = post_nat_output["result"]["rules"]
-    address_object_entries = address_objects["result"]["address"]
+    mem.address_object_entries = address_objects["result"]["address"]
 
 
-    # Interfaces
-    mem.garp_commands.append(
-        "--------------------ARP FOR Interfaces---------------------"
-    )
-
+    # Start the real work finally...
     eth_commands = build_garp_interfaces(eth_entries, "ethernet")
     ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
 
-    if eth_commands:
-        for command in eth_commands:
-            if isinstance(command,list):
-                for ip in command:
-                    mem.garp_commands.append(ip)
-            else:
-                mem.garp_commands.append(command)
-    if ae_commands:
-        for command in ae_commands:
-            if isinstance(command,list):
-                for ip in command:
-                    mem.garp_commands.append(ip)        
-            else:
-                mem.garp_commands.append(command)
+    if pre_nat_output:
+        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
+    else:
+        garp_pre_nat_commands = None
 
-    # NAT Rules
+    garp_post_nat_commands = build_garp_natrules(post_nat_entries)
+
+    mem.garp_commands.append(
+        "--------------------ARP FOR Interfaces---------------------"
+    )
+    build_garp_output(eth_commands)
+    build_garp_output(ae_commands)
     mem.garp_commands.append(
         "-------------------------ARP FOR NAT-----------------------"
     )
-    if pre_nat_output:
-        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
-    if post_nat_output:
-        garp_post_nat_commands = build_garp_natrules(post_nat_entries)
-
-    if pre_nat_output:
-        for command in garp_pre_nat_commands:
-            if isinstance(command, list):
-                for ip in command:
-                    if ip:
-                        mem.garp_commands.append(ip)
-            elif command:
-                mem.garp_commands.append(command)
-
-    if post_nat_output:
-        for command in garp_post_nat_commands:
-            if isinstance(command, list):
-                for ip in command:
-                    if ip:
-                        mem.garp_commands.append(ip)
-            elif command:
-                mem.garp_commands.append(command)
+    build_garp_output(garp_pre_nat_commands)
+    build_garp_output(garp_post_nat_commands)
 
 
     # Print out all the commands/output!
