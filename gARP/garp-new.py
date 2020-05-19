@@ -46,7 +46,6 @@ import ipcalc
 import time
 import argparse
 import copy
-import concurrent.futures
 
 import xmltodict
 import api_lib_pa as pa_api
@@ -131,7 +130,7 @@ def add_review_entry(entry, type):
         print("For NAT? I know a couple use cases, but maybe manually add this gARP after reviewing.")
         print("May be redundant or otherwise unnecessary.")
 
-    pa_api.create_xml_files(entry, f"review-{entry['@name']}.xml")
+    pa_api.create_xml_files(entry, f"api/review/review-{entry['@name']}.xml")
 
 
 def add_garp_command(ip, ifname):
@@ -234,30 +233,7 @@ def process_interface_entries(entry):
     else:  # No 'layer3', no IP Address here.
         error = f"No IP address found (e2), {ifname}"
         return error
-
-
-def build_garp_interfaces(entries, iftype):
-    """
-    Search through ethernet and aggregate-ethernet interfaces.
-    Build a list of 'test arp' commands based on what is found.
-    Return this list.
-    """
-    results = []
-    if entries:
-        print(f"Searching through {iftype} interfaces")
-
-        entries_ = entries["entry"]
-        if isinstance(entries_, list):
-            for entry in entries_:
-                results.append(process_interface_entries(entry))
-        else:
-            results = process_interface_entries(entries_)
-            return [results]
-
-        return results
-        
-    else:  # No interfaces
-        print(f"No interfaces found for '{iftype}' type interfaces")
+    
 
 
 def process_nat_entries(entry):
@@ -336,6 +312,7 @@ def build_garp_commands(input_type, entries):
     Currently only supports source-nat, dest-nat's are noted at the end of the output.
     Return this list.
     """
+    # Set whether this is NAT or Interface based
     if input_type == "ethernet" or input_type == "aggregate-ethernet":
         process_entries = process_interface_entries 
     elif input_type == "pre-nat-rules" or input_type == "post/nat-rules":
@@ -344,18 +321,21 @@ def build_garp_commands(input_type, entries):
         print(f"Unsupported Type - {input_type}")
         sys.exit(0)
 
+    # Begin
     results = []
     if entries:
         print(f"Searching through {input_type}")
 
         entries_ = entries["entry"]
         if isinstance(entries_, list):
+            # Normal operations, process each entry individually, build the output.
             for entry in entries_:
                 results.append(process_entries(entry))
         else:
-            results = process_nat_entries(entries_)
+            # Only 1 entry, run once and return it as a list.
+            results = process_entries(entries_)
             return [results]
-        
+        # Returns the list of 'test arp' commands based on the input type received.
         return results
 
     else:  
@@ -377,9 +357,11 @@ def print_garp_output(command_list):
     for command in command_list:
         if isinstance(command,list):
             for ip in command:
-                print(ip)
+                if ip:
+                    print(ip)
         else:
-            print(command)
+            if command:
+                print(command)
 
 
 def garp_logic(pa_ip, username, password, pa_type, filename=None):
