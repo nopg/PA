@@ -44,19 +44,45 @@ import sys
 import os
 import ipcalc
 import time
-import argparse
 import concurrent.futures
 
 import xmltodict
-import api_lib_pa as pa_api
+import api_lib_pa as pa
 
 DEBUG = False
 
+# fmt: off
+# Global Variables, debug & xpath location for each profile type
+# ENTRY = + "/entry[@name='alert-only']"
+
 class mem: 
+
+    XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address/entry[@name='ENTRY_NAME']"
+    XPATH_ADDRESS_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address/entry[@name='ENTRY_NAME']"
+
+    XPATH_INTERFACES =    "/config/devices/entry[@name='localhost.localdomain']/network/interface"
+    XPATH_INTERFACES_PAN =    "/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='TEMPLATE_NAME']/config/devices/entry[@name='localhost.localdomain']/network/interface"
+
+    XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
+    XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
+
+    XPATH_POST_NAT_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/nat/rules"
+    XPATH_PRE_NAT_RULES_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/nat/rules"
+    XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/nat/rules"
+
     ip_to_eth_dict = {}
+    pa_ip = None
+    username = None
+    password = None
+    fwconn = None
+    device_group = None
+    root_folder = '.'
     garp_commands = []
     review_nats = []
-    address_object_entries = None
+
+# PAN_XML_NATRULES =      "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/nat/rules"
+
+# fmt: on
 
 
 def iterdict(d, searchfor):
@@ -95,28 +121,36 @@ def address_lookup(entry):
     If the NAT rule isn't using an object, we can assume this value is the IP address.
     Returns a LIST
     """
+    if mem.pa_or_pan == "panorama":
+        XPATH = mem.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", mem.device_group)
+        XPATH = XPATH.replace("ENTRY_NAME", entry)
+    else:
+        XPATH = mem.XPATH_ADDRESS_OBJ.replace("ENTRY_NAME", entry)
 
-    if not isinstance(mem.address_object_entries, list):
-        mem.address_object_entries = [mem.address_object_entries]
+    filename = entry.split("/", 1)[0]
+    output = mem.fwconn.grab_api_output("xml", XPATH, f"{mem.root_folder}/address-obj--{filename}.xml")
 
-    found = False
-    for addr_object in mem.address_object_entries:
-        if entry in addr_object.get("@name"):
-            if "ip-netmask" in addr_object:
-                found = True
-                ips = addr_object["ip-netmask"]
-                print(f"found {entry} here: {addr_object}")
+    # Need to check for no response, must be an IP not address
+    if output["result"]:
+        if "entry" in output["result"]:
+            if "ip-netmask" in output["result"]["entry"]:
+                ips = output["result"]["entry"]["ip-netmask"]
             else:
-                add_review_entry(addr_object, "not-ip-netmask")
-    if not found:
-        ips = entry 
+                add_review_entry(output["result"]["entry"], "not-ip-netmask")
+        else:
+            # It must be an IP/Mask already
+            ips = entry
+    else:
+        # It must be an IP/Mask already
+        ips = entry    
 
-    if isinstance(ips,list):
-        pass # Good (for now)
+    if ips is list:
+        for ip in ips:
+            ips.append(ip)
     else:
         ips = [ips]
 
-    return ips # Always returns a list (currently)
+    return ips
 
 
 def add_review_entry(entry, type):
@@ -132,7 +166,7 @@ def add_review_entry(entry, type):
         print("For NAT? I know a couple use cases, but maybe manually add this gARP after reviewing.")
         print("May be redundant or otherwise unnecessary.")
 
-    pa_api.create_xml_files(entry, f"review-{entry['@name']}.xml")
+    mem.fwconn.create_xml_files(entry, f"{mem.root_folder}/review-{entry['@name']}.xml")
 
 
 def add_garp_command(ip, ifname):
@@ -245,7 +279,7 @@ def build_garp_interfaces(entries, iftype):
     """
     results = None
     if entries:
-        print(f"Searching through {iftype} interfaces")
+        print(f"\nSearching through {iftype} interfaces")
         
         entries_ = entries["entry"]
         if isinstance(entries_, list):
@@ -260,7 +294,7 @@ def build_garp_interfaces(entries, iftype):
         return results
         
     else:  # No interfaces
-        print(f"No interfaces found for '{iftype}' type interfaces")
+        print(f"\nNo interfaces found for '{iftype}' type interfaces\n")
 
 
 def process_nat_entries(entry):
@@ -341,7 +375,8 @@ def build_garp_natrules(entries):
     """
     results = None
     if entries:
-        print(f"Searching through natrules")
+        print(f"\nSearching through natrules")
+        print("\nPlease wait..\n")
 
         entries_ = entries["entry"]
         if isinstance(entries_, list):
@@ -358,163 +393,166 @@ def build_garp_natrules(entries):
     else:  # No Natrules
         print(f"No nat rules found for 'natrules")
         return []
+    
 
 
-def build_garp_output(command_list):
-    for command in command_list:
-        if isinstance(command,list):
-            for ip in command:
-                mem.garp_commands.append(ip)
-        else:
-            mem.garp_commands.append(command)
-
-
-def validate_output(output_types):
-    for output_type, output in output_types.items():
-        found = False
-        if output:
-            if output.get("result"):
-                found = True
-        if not found:
-            output = None
-            print(f"No {output_type} found, check xml for API Reply")
-            if output_type != "pre-nat-rules" and output_type != "address-objects":
-                print("Unable to load required information, see above and correct the issue.\n")
-                sys.exit(0)
-
-
-def garp_logic(pa_ip, username, password, pa_type, filename=None):
+def garp_logic(pa_ip, username, password, pa_or_pan, root_folder=None):
     """
     Main point of entry.
     Connect to PA/Panorama.
     Grab 'test arp' output from interfaces and NAT rules.
     Print out the commands.
     """
+    mem.pa_ip = pa_ip
+    mem.username = username
+    mem.password = password
+    if not DEBUG:
+        mem.fwconn = pa.api_lib_pa(mem.pa_ip, mem.username, mem.password, pa_or_pan)
+    mem.pa_or_pan = pa_or_pan
+    mem.root_folder = root_folder
 
-    if pa_type != "xml":
-        pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
-    else:
+    # Set the correct XPATH for what we need (interfaces and nat rules)
+    if mem.pa_or_pan == "panorama":
+
+        # Needs Template Name & Device Group
+        device_groups, template_names = mem.fwconn.grab_panorama_objects()
+        print("\nTemplate Names:")
+        print("---------------------")
+        for template in template_names:
+            print(template)
+        print("--------------\n")
+        print("Device Groups:")
+        print("--------------")
+        for dg in device_groups:
+            print(dg)
+            
+        template_name = input("\nEnter the Template Name (CORRECTLY!): ")
+        mem.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
+
+        XPATH_INTERFACES = mem.XPATH_INTERFACES_PAN
+        XPATH_INTERFACES = XPATH_INTERFACES.replace("TEMPLATE_NAME", template_name)
+        XPATH_INTERFACES = XPATH_INTERFACES.replace("DEVICE_GROUP", mem.device_group)
+
+        XPATH_PRE = mem.XPATH_PRE_NAT_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+        XPATH_POST = mem.XPATH_POST_NAT_RULES_PAN.replace("DEVICE_GROUP", mem.device_group)
+
+        # Grab NAT Rules
+        pre_nat_output = mem.fwconn.grab_api_output(
+            "xml", XPATH_PRE, f"{mem.root_folder}/pre-natrules.xml"
+        )
+        post_nat_output = mem.fwconn.grab_api_output(
+            "xml", XPATH_POST, f"{mem.root_folder}/post-natrules.xml"
+        )
+    
+    elif mem.pa_or_pan == "pa":
+        XPATH_INTERFACES = mem.XPATH_INTERFACES
+        XPATH_NATRULES = mem.XPATH_NAT_RULES
+        # Grab NAT Rules 
         pre_nat_output = None
-        post_nat_output = None
-        fin = open(filename, 'r')
+        post_nat_output = mem.fwconn.grab_api_output(
+            "xml", XPATH_NATRULES, f"{mem.root_folder}/pa-natrules.xml"
+        )
+    elif mem.pa_or_pan == "xml":
+        fin = open(mem.fname, 'r')
         temp = fin.read()
         fin.close()
         int_output = xmltodict.parse(temp)
         int_output = int_output["response"]
         # print(int_output["response"])
-        sys.exit(0)
+        # sys.exit(0)
+         
 
-    # Set the correct XPATH for what we need (interfaces and nat rules)
-    if pa_type == "panorama":
-
-        incorrect_input = True
-        while incorrect_input:
-            # Needs Template Name & Device Group
-            device_groups, template_names = pa.grab_panorama_objects()
-            print("\nTemplate Names:")
-            print("---------------------")
-            for template in template_names:
-                print(template)
-            print("--------------\n")
-            print("Device Groups:")
-            print("--------------")
-            for dg in device_groups:
-                print(dg)
-                
-            pa.template_name = input("\nEnter the Template Name: ")
-            pa.device_group = input("\nEnter the Device Group Name: ")
-
-            incorrect_input = (
-                pa.device_group not in device_groups or
-                pa.template_name not in template_names
-            )
-            if incorrect_input:
-                print("\n\nERROR: Template or Device Group not found.\n")
-
-        # Found Device Group / Template Name, Proceed
-        XPATH_INTERFACES = pa_api.XPATH_INTERFACES_PAN.replace("TEMPLATE_NAME", pa.template_name)
-        XPATH_PRE = pa_api.XPATH_NAT_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_POST = pa_api.XPATH_NAT_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", pa.device_group)
-        
-        # Grab NAT Rules
-        pre_nat_output = pa.grab_api_output(
-            "xml", XPATH_PRE, f"api/pre-natrules.xml"
-        )
-        post_nat_output = pa.grab_api_output(
-            "xml", XPATH_POST, f"api/post-natrules.xml"
-        )
-    
-    elif pa_type == "pa":
-        XPATH_INTERFACES = pa_api.XPATH_INTERFACES
-        XPATH_NATRULES = pa_api.XPATH_NAT_RULES
-        XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ
-
-        # Grab NAT Rules 
-        pre_nat_output = None
-        post_nat_output = pa.grab_api_output(
-            "xml", XPATH_NATRULES, f"api/pa-natrules.xml"
-        )
-    
-    # We have what we need, begin the work.
     start = time.perf_counter()
-    print("\n\nStarting...")
+    
+    # Grab Interfaces (XML)
+    if not DEBUG:
+        int_output = mem.fwconn.grab_api_output(
+            "xml", XPATH_INTERFACES, f"{mem.root_folder}/interfaces.xml"
+        )
+    else:
+        pre_nat_output = None
+        post_nat_output = None
 
-    # Grab Interfaces
-    int_output = pa.grab_api_output(
-        "xml", XPATH_INTERFACES, f"api/interfaces.xml"
-    )
-    address_objects = pa.grab_api_output(
-        "xml", XPATH_ADDR, f"api/address-objects.xml"
-    )
+    if not int_output:
+        print("\nNo interfaces found, check interfaces.xml for API Reply\n")
 
-    output_types = {
-        "interfaces": int_output,
-        "address-objects": address_objects,
-        "pre-nat-rules": pre_nat_output,
-        "post-nat-rules": post_nat_output
-    }
+    if pre_nat_output:
+        pre_nat_output = pre_nat_output.get("result")
+        if not pre_nat_output:
+            print("\nNo Pre NAT Rules found, check pre-natrules.xml for API Reply\n")
 
-    validate_output(output_types)
+    if post_nat_output:
+        post_nat_output = post_nat_output.get("result")
+        if not post_nat_output:
+            print("\nNo NAT Rules found, check natrules.xml for API Reply\n")
 
     # Parse XML to get to what we need closer to a dictionary
-    eth_entries = int_output["result"]["interface"].get("ethernet")
-    ae_entries = int_output["result"]["interface"].get("aggregate-ethernet")
+    eth_entries = (
+        int_output.get("result").get("interface").get("ethernet")
+    )
+    ae_entries = (
+        int_output.get("result")
+        .get("interface")
+        .get("aggregate-ethernet")
+    )
     if pre_nat_output:
-        pre_nat_output = None
-        #pre_nat_entries = pre_nat_output["result"]["rules"]
-    post_nat_entries = post_nat_output["result"]["rules"]
-    if address_objects.get("result"):
-        mem.address_object_entries = address_objects["result"]["address"]["entry"]
+        pre_nat_entries = pre_nat_output.get("rules")
+    if post_nat_output:
+        post_nat_entries = post_nat_output.get("rules")
 
-    # Start the real work finally...
-    eth_commands = build_garp_interfaces(eth_entries, "ethernet")
-    ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
-
-    if pre_nat_output:
-        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
-    else:
-        garp_pre_nat_commands = None
-
-    garp_post_nat_commands = build_garp_natrules(post_nat_entries)
-
-    # Output
+    # Interfaces
     mem.garp_commands.append(
         "--------------------ARP FOR Interfaces---------------------"
     )
-    build_garp_output(eth_commands)
+
+    eth_commands = build_garp_interfaces(eth_entries, "ethernet")
+    ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
+
+    if eth_commands:
+        for command in eth_commands:
+            if isinstance(command,list):
+                for ip in command:
+                    mem.garp_commands.append(ip)
+            else:
+                mem.garp_commands.append(command)
     if ae_commands:
-        build_garp_output(ae_commands)
+        for command in ae_commands:
+            if isinstance(command,list):
+                for ip in command:
+                    mem.garp_commands.append(ip)        
+            else:
+                mem.garp_commands.append(command)
+
+    # NAT Rules
     mem.garp_commands.append(
         "-------------------------ARP FOR NAT-----------------------"
     )
-    if garp_pre_nat_commands:
-        build_garp_output(garp_pre_nat_commands)
-    build_garp_output(garp_post_nat_commands)
+    if pre_nat_output:
+        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
+    if post_nat_output:
+        garp_post_nat_commands = build_garp_natrules(post_nat_entries)
+
+    if pre_nat_output:
+        for command in garp_pre_nat_commands:
+            if isinstance(command, list):
+                for ip in command:
+                    if ip:
+                        mem.garp_commands.append(ip)
+            elif command:
+                mem.garp_commands.append(command)
+
+    if post_nat_output:
+        for command in garp_post_nat_commands:
+            if isinstance(command, list):
+                for ip in command:
+                    if ip:
+                        mem.garp_commands.append(ip)
+            elif command:
+                mem.garp_commands.append(command)
 
 
     # Print out all the commands/output!
-    print(f"\n\ngARP Test Commands:")
+    print(f"\ngARP Test Commands:")
     print("-----------------------------------------------------------")
     for line in mem.garp_commands:
         print(line)
@@ -533,36 +571,61 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
 # If run from the command line
 if __name__ == "__main__":
 
-    # Check arguments, if 'xml' then don't need the rest of the input
-    argrequired = '--xml' not in sys.argv and '-x' not in sys.argv
-    parser = argparse.ArgumentParser(description="Please use this syntax:")
-    parser.add_argument("-x", "--xml", help="Optional XML Filename", type=str)
-    parser.add_argument("-u", "--username", help="Username", type=str, required=argrequired)
-    parser.add_argument("-i", "--ipaddress", help="IP or FQDN of PA/Panorama", type=str, required=argrequired)
-    args = parser.parse_args()
-
-    # IF XML, do not connect to PA/Pan
-    if args.xml:
-        DEBUG = True
-        filename = args.xml
-        garp_logic("n/a", "n/a", "n/a", "xml", filename)
+    if DEBUG:
+        mem.fname = sys.argv[1]
+        garp_logic("n/a", "n/a","n/a", "xml")
         sys.exit(0)
 
+    root_folder = None
+    # Guidance on how to use the script
+    if len(sys.argv) == 4:
+        root_folder = sys.argv[3]
+    elif len(sys.argv) != 3:
+        print("\nplease provide the following arguments:")
+        print(
+            "\tpython3 garp.py <PA/Panorama IP> <username> <optional output folder>\n\n"
+        )
+        sys.exit(0)
+
+    if not root_folder:
+        root_folder = "~temp/"
+
     # Gather input
-    pa_ip = args.ipaddress
-    username = args.username
-    password = getpass("Enter Password: ")    
+    pa_ip = sys.argv[1]
+    username = sys.argv[2]
+    password = getpass("Enter Password: ")
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
-        paobj = pa_api.api_lib_pa(pa_ip, username, password, "test")
-        del(paobj)
+        paobj = pa.api_lib_pa(pa_ip, username, password, "test")
     except:
         print(f"Error connecting to: {pa_ip}\nCheck username/password and network connectivity.")
         sys.exit(0)
-    
+
     # PA or Panorama?
-    pa_type = pa_api.get_pa_type()
-    
+    allowed = list("12")  # Allowed user input
+    incorrect_input = True
+    while incorrect_input:
+        pa_or_pan = input(
+            """\nIs this a PA Firewall or Panorama?
+
+        1) PA (Firewall)
+        2) Panorama (PAN)
+
+        Enter 1 or 2: """
+        )
+
+        for value in pa_or_pan:
+            if value not in allowed:
+                incorrect_input = True
+                break
+            else:
+                incorrect_input = False
+
+    if pa_or_pan == "1":
+        pa_or_pan = "pa"
+    else:
+        pa_or_pan = "panorama"
+
     # Run program
-    garp_logic(pa_ip, username, password, pa_type)
+    garp_logic(pa_ip, username, password, pa_or_pan, root_folder)
