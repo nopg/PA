@@ -45,6 +45,7 @@ import os
 import ipcalc
 import time
 import argparse
+import copy
 import concurrent.futures
 
 import xmltodict
@@ -54,7 +55,6 @@ DEBUG = False
 
 class mem: 
     ip_to_eth_dict = {}
-    garp_commands = []
     review_nats = []
     address_object_entries = None
 
@@ -105,7 +105,6 @@ def address_lookup(entry):
             if "ip-netmask" in addr_object:
                 found = True
                 ips = addr_object["ip-netmask"]
-                print(f"found {entry} here: {addr_object}")
             else:
                 add_review_entry(addr_object, "not-ip-netmask")
     if not found:
@@ -243,20 +242,18 @@ def build_garp_interfaces(entries, iftype):
     Build a list of 'test arp' commands based on what is found.
     Return this list.
     """
-    results = None
+    results = []
     if entries:
         print(f"Searching through {iftype} interfaces")
-        
+
         entries_ = entries["entry"]
         if isinstance(entries_, list):
-            pass
+            for entry in entries_:
+                results.append(process_interface_entries(entry))
         else:
             results = process_interface_entries(entries_)
             return [results]
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(process_interface_entries, entries["entry"])
-        
         return results
         
     else:  # No interfaces
@@ -332,55 +329,57 @@ def process_nat_entries(entry):
     return None
 
 
-def build_garp_natrules(entries):
+def build_garp_commands(input_type, entries):
     """
     Search through PA/Panorama NAT Rules.
     Build a list of 'test arp' commands based on what is found.
     Currently only supports source-nat, dest-nat's are noted at the end of the output.
     Return this list.
     """
-    results = None
+    if input_type == "ethernet" or input_type == "aggregate-ethernet":
+        process_entries = process_interface_entries 
+    elif input_type == "pre-nat-rules" or input_type == "post/nat-rules":
+        process_entries = process_nat_entries
+    else:
+        print(f"Unsupported Type - {input_type}")
+        sys.exit(0)
+
+    results = []
     if entries:
-        print(f"Searching through natrules")
+        print(f"Searching through {input_type}")
 
         entries_ = entries["entry"]
         if isinstance(entries_, list):
-            pass
+            for entry in entries_:
+                results.append(process_entries(entry))
         else:
             results = process_nat_entries(entries_)
             return [results]
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = executor.map(process_nat_entries, entries["entry"])
         
         return results
 
-    else:  # No Natrules
-        print(f"No nat rules found for 'natrules")
+    else:  
+        print(f"No {input_type} found.")
         return []
 
 
-def build_garp_output(command_list):
+def validate_output(output_type):
+    validated_output = copy.deepcopy(output_type)
+
+    if output_type:
+        if output_type.get("result"):
+            return validated_output["result"]
+    else:
+        return None
+
+
+def print_garp_output(command_list):
     for command in command_list:
         if isinstance(command,list):
             for ip in command:
-                mem.garp_commands.append(ip)
+                print(ip)
         else:
-            mem.garp_commands.append(command)
-
-
-def validate_output(output_types):
-    for output_type, output in output_types.items():
-        found = False
-        if output:
-            if output.get("result"):
-                found = True
-        if not found:
-            output = None
-            print(f"No {output_type} found, check xml for API Reply")
-            if output_type != "pre-nat-rules" and output_type != "address-objects":
-                print("Unable to load required information, see above and correct the issue.\n")
-                sys.exit(0)
+            print(command)
 
 
 def garp_logic(pa_ip, username, password, pa_type, filename=None):
@@ -393,16 +392,17 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
 
     if pa_type != "xml":
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
-    else:
-        pre_nat_output = None
-        post_nat_output = None
-        fin = open(filename, 'r')
-        temp = fin.read()
-        fin.close()
-        int_output = xmltodict.parse(temp)
-        int_output = int_output["response"]
-        # print(int_output["response"])
-        sys.exit(0)
+    else: # XML - DEBUGGING
+        pass
+        # pre_nat_output = None
+        # post_nat_output = None
+        # fin = open(filename, 'r')
+        # temp = fin.read()
+        # fin.close()
+        # int_output = xmltodict.parse(temp)
+        # int_output = int_output["response"]
+        # # print(int_output["response"])
+        # sys.exit(0)
 
     # Set the correct XPATH for what we need (interfaces and nat rules)
     if pa_type == "panorama":
@@ -460,7 +460,7 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
     start = time.perf_counter()
     print("\n\nStarting...")
 
-    # Grab Interfaces
+    # Grab Interfaces/objects, NAT already pulled from above
     int_output = pa.grab_api_output(
         "xml", XPATH_INTERFACES, f"api/interfaces.xml"
     )
@@ -468,58 +468,47 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
         "xml", XPATH_ADDR, f"api/address-objects.xml"
     )
 
-    output_types = {
-        "interfaces": int_output,
-        "address-objects": address_objects,
-        "pre-nat-rules": pre_nat_output,
-        "post-nat-rules": post_nat_output
-    }
+    # Organize all the XML:
+    # Get rid of 'Nonetype' issues
+    int_output = validate_output(int_output)
+    addr_objects = validate_output(address_objects)
+    pre_nat_output = validate_output(pre_nat_output)
+    post_nat_output = validate_output(post_nat_output)
+    # Can't run without an interface or a nat rule
+    if not int_output or not post_nat_output:
+        print("\nUnable to load required information, see above and correct the issue.\n")
+        sys.exit(0)
+    # Get the actual entries
+    eth_entries = int_output["interface"].get("ethernet")
+    ae_entries = int_output["interface"].get("aggregate-ethernet")
+    post_nat_entries = post_nat_output["rules"]
+    pre_nat_entries = pre_nat_output["rules"] if pre_nat_output else None
+    mem.address_object_entries = addr_objects["address"]["entry"] if addr_objects else None
 
-    validate_output(output_types)
-
-    # Parse XML to get to what we need closer to a dictionary
-    eth_entries = int_output["result"]["interface"].get("ethernet")
-    ae_entries = int_output["result"]["interface"].get("aggregate-ethernet")
-    if pre_nat_output:
-        pre_nat_output = None
-        #pre_nat_entries = pre_nat_output["result"]["rules"]
-    post_nat_entries = post_nat_output["result"]["rules"]
-    if address_objects.get("result"):
-        mem.address_object_entries = address_objects["result"]["address"]["entry"]
-
-    # Start the real work finally...
-    eth_commands = build_garp_interfaces(eth_entries, "ethernet")
-    ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
-
-    if pre_nat_output:
-        garp_pre_nat_commands = build_garp_natrules(pre_nat_entries)
-    else:
-        garp_pre_nat_commands = None
-
-    garp_post_nat_commands = build_garp_natrules(post_nat_entries)
+    # Start grabbing test arp commands from the entries
+    # eth_commands = build_garp_interfaces(eth_entries, "ethernet")
+    # ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
+    # pre_nat_commands = build_garp_natrules(pre_nat_entries)
+    # post_nat_commands = build_garp_natrules(post_nat_entries)
+    eth_commands = build_garp_commands("ethernet",eth_entries)
+    ae_commands = build_garp_commands("aggregate-ethernet", ae_entries)
+    pre_nat_commands = build_garp_commands("pre-nat-rules", pre_nat_entries)
+    post_nat_commands = build_garp_commands("post/nat-rules", post_nat_entries)
 
     # Output
-    mem.garp_commands.append(
-        "--------------------ARP FOR Interfaces---------------------"
-    )
-    build_garp_output(eth_commands)
-    if ae_commands:
-        build_garp_output(ae_commands)
-    mem.garp_commands.append(
-        "-------------------------ARP FOR NAT-----------------------"
-    )
-    if garp_pre_nat_commands:
-        build_garp_output(garp_pre_nat_commands)
-    build_garp_output(garp_post_nat_commands)
-
-
-    # Print out all the commands/output!
     print(f"\n\ngARP Test Commands:")
     print("-----------------------------------------------------------")
-    for line in mem.garp_commands:
-        print(line)
+    print("--------------------ARP FOR Interfaces---------------------")
+    if eth_commands:
+        print_garp_output(eth_commands)
+    if ae_commands:
+        print_garp_output(ae_commands)
+    print("-------------------------ARP FOR NAT-----------------------")
+    if pre_nat_commands:
+        print_garp_output(pre_nat_commands)
+    if post_nat_commands:
+        print_garp_output(post_nat_commands)
     print("-----------------------------------------------------------")
-
     print("--------------------REVIEW THESE NATS----------------------")
     for nat in mem.review_nats:
         print(nat)
@@ -527,7 +516,6 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
     end = time.perf_counter()
     runtime = end - start
     print(f"Took {runtime} Seconds.")
-
 
 
 # If run from the command line
