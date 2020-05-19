@@ -468,11 +468,7 @@ def garp_logic(pa_ip, username, password, pa_type, filename=None):
     mem.address_object_entries = addr_objects["address"]["entry"] if addr_objects else None
 
     # Start grabbing test arp commands from the entries
-    # eth_commands = build_garp_interfaces(eth_entries, "ethernet")
-    # ae_commands = build_garp_interfaces(ae_entries, "aggregate-ethernet")
-    # pre_nat_commands = build_garp_natrules(pre_nat_entries)
-    # post_nat_commands = build_garp_natrules(post_nat_entries)
-    eth_commands = build_garp_commands("ethernet",eth_entries)
+    eth_commands = build_garp_commands("ethernet", eth_entries)
     ae_commands = build_garp_commands("aggregate-ethernet", ae_entries)
     pre_nat_commands = build_garp_commands("pre-nat-rules", pre_nat_entries)
     post_nat_commands = build_garp_commands("post/nat-rules", post_nat_entries)
