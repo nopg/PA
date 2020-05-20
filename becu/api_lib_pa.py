@@ -56,7 +56,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 DEBUG = False
 
 #PA:
-XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address/entry[@name='ENTRY_NAME']"
+XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address"
 XPATH_INTERFACES =    "/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
 XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/nat/rules"
@@ -64,7 +64,7 @@ XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/ent
 #PAN:
 XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
 XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
-XPATH_ADDRESS_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address/entry[@name='ENTRY_NAME']"
+XPATH_ADDRESS_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address"
 XPATH_INTERFACES_PAN =    "/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='TEMPLATE_NAME']/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITY_RULES_PRE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
 XPATH_SECURITY_RULES_POST_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
@@ -73,6 +73,114 @@ XPATH_NAT_RULES_POST_PAN = "/config/devices/entry[@name='localhost.localdomain']
 
 #########################################################################################################
 
+# Menu to grab PA/Panorama Type
+def get_pa_type():
+    allowed = list("12")  # Allowed user input
+    incorrect_input = True
+    while incorrect_input:
+        pa_type = input(
+            """\nIs this a PA Firewall or Panorama?
+
+        1) PA (Firewall)
+        2) Panorama (PAN)
+
+        Enter 1 or 2: """
+        )
+
+        for value in pa_type:
+            if value not in allowed:
+                incorrect_input = True
+                break
+            else:
+                incorrect_input = False
+
+    if pa_type == "1":
+        pa_type = "pa"
+    else:
+        pa_type= "panorama"
+    
+    return pa_type
+
+
+def create_xml_files(temp, filename):
+
+    # Pull folder name from string
+    end = filename.rfind("/")
+    if end != -1:
+        folder = filename[0:end]
+        timestamp = "/" + \
+        str(datetime.now().year) + '-' + \
+        str(datetime.now().month) + '-' + \
+        str(datetime.now().day) + '--' + \
+        str(datetime.now().hour) + '-' + \
+        str(datetime.now().minute) + '/'
+
+        filename = folder + timestamp + filename[end:]
+
+    # Create the root folder and subfolder if it doesn't already exist
+        os.makedirs(folder + timestamp, exist_ok=True)
+
+
+    # Because XML: remove <response/><result/> and <?xml> tags
+    # Using get().get() won't cause exception on KeyError
+    # Check for various response type and ensure xml is written consistently
+
+    #Set data
+    if not isinstance(temp,list):
+        data = temp.get("response")
+        data = {"response": data}
+
+        if data:
+            # data = temp.get("response").get("result")
+            if data:
+                data = xmltodict.unparse(data)
+            else:
+                data = xmltodict.unparse(temp)
+        else:
+            data = xmltodict.unparse(temp)
+        data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+
+        prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
+
+        with open(filename, "w") as fout:
+            fout.write(prettyxml)
+    else:
+        data = temp
+        with open(filename, "w") as fout:
+            fout.write("\n".join(data))
+
+
+def create_json_files(temp, filename):
+    """
+    CREATE OUTPUT FILES 
+
+    :param data: list of data to be written
+    :param template_type: 'feature' or 'device'
+    :return: None, print output
+    """
+    # Pull folder name from string
+    end = filename.rfind("/")
+    folder = filename[0:end]
+
+    timestamp = "/" + \
+    str(datetime.now().year) + '-' + \
+    str(datetime.now().month) + '-' + \
+    str(datetime.now().day) + '--' + \
+    str(datetime.now().hour) + '-' + \
+    str(datetime.now().minute) + '/'
+
+    filename = folder + timestamp + filename[end:]
+
+    # Create the root folder and subfolder if it doesn't already exist
+    os.makedirs(folder + timestamp, exist_ok=True)
+
+    data = json.dumps(temp, indent=4, sort_keys=True)
+    # Write Data
+    fout = open(filename, "w")
+    fout.write(data)
+    fout.close()
+
+    # print("\tCreated: {}\n".format(filename))
 
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
@@ -118,88 +226,6 @@ class api_lib_pa:
         if not self.key:
             print(f"Login Failed: Response=\n{temp}")
             sys.exit(0)
-
-        # Create file for each profile type
-
-    def create_xml_files(self, temp, filename):
-
-        # Pull folder name from string
-        end = filename.rfind("/")
-        if end != -1:
-            folder = filename[0:end]
-            timestamp = "/" + \
-            str(datetime.now().year) + '-' + \
-            str(datetime.now().month) + '-' + \
-            str(datetime.now().day) + '--' + \
-            str(datetime.now().hour) + '-' + \
-            str(datetime.now().minute) + '/'
-
-            filename = folder + timestamp + filename[end:]
-
-        # Create the root folder and subfolder if it doesn't already exist
-            os.makedirs(folder + timestamp, exist_ok=True)
-
-
-        # Because XML: remove <response/><result/> and <?xml> tags
-        # Using get().get() won't cause exception on KeyError
-        # Check for various response type and ensure xml is written consistently
-
-        #Set data
-        if not isinstance(temp,list):
-            data = temp.get("response")
-            data = {"response": data}
-
-            if data:
-                # data = temp.get("response").get("result")
-                if data:
-                    data = xmltodict.unparse(data)
-                else:
-                    data = xmltodict.unparse(temp)
-            else:
-                data = xmltodict.unparse(temp)
-            data = data.replace('<?xml version="1.0" encoding="utf-8"?>', "")
-
-            prettyxml = xml.dom.minidom.parseString(data).toprettyxml()
-
-            with open(filename, "w") as fout:
-                fout.write(prettyxml)
-        else:
-            data = temp
-            with open(filename, "w") as fout:
-                fout.write("\n".join(data))
-
-
-    def create_json_files(self, temp, filename):
-        """
-        CREATE OUTPUT FILES 
-
-        :param data: list of data to be written
-        :param template_type: 'feature' or 'device'
-        :return: None, print output
-        """
-        # Pull folder name from string
-        end = filename.rfind("/")
-        folder = filename[0:end]
-
-        timestamp = "/" + \
-        str(datetime.now().year) + '-' + \
-        str(datetime.now().month) + '-' + \
-        str(datetime.now().day) + '--' + \
-        str(datetime.now().hour) + '-' + \
-        str(datetime.now().minute) + '/'
-
-        filename = folder + timestamp + filename[end:]
-
-        # Create the root folder and subfolder if it doesn't already exist
-        os.makedirs(folder + timestamp, exist_ok=True)
-
-        data = json.dumps(temp, indent=4, sort_keys=True)
-        # Write Data
-        fout = open(filename, "w")
-        fout.write(data)
-        fout.close()
-
-        # print("\tCreated: {}\n".format(filename))
 
 
     # Grab Panorama Device Groups & Templates
@@ -320,7 +346,7 @@ class api_lib_pa:
                 success = True
 
             if filename:
-                self.create_xml_files(xml_response, filename)
+                create_xml_files(xml_response, filename)
 
             # if not xml_response["response"]["result"]:
             #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
@@ -334,7 +360,7 @@ class api_lib_pa:
             if json_response["@status"] == "success":
                 success = True
             if filename:
-                self.create_json_files(json_response, filename)
+                create_json_files(json_response, filename)
 
             # if not json_response["result"]:
             #     print("Nothing found on PA/Panorama, are you connecting to the right device?")
@@ -345,7 +371,7 @@ class api_lib_pa:
             if DEBUG:
                 print(f"\nGET request sent: xpath={xpath_or_restcall}.\n")
                 print(f"\nResponse: \n{response}")
-                self.create_xml_files(response, filename)
+                create_xml_files(response, filename)
                 print(f"Output also written to {filename}")
             else:
                 print(f"\nError exporting '{filename}' object.")

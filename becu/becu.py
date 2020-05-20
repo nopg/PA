@@ -56,6 +56,7 @@ import json
 import time
 import xml.dom.minidom
 import copy
+import argparse
 
 import xmltodict
 import api_lib_pa as pa_api
@@ -324,59 +325,37 @@ def becu(pa_ip, username, password, pa_type, filename=None):
 # If run from the command line
 if __name__ == "__main__":
 
-    # Guidance on how to use the script
-    if len(sys.argv) == 2:
+    # Check arguments, if 'xml' then don't need the rest of the input
+    argrequired = '--xml' not in sys.argv and '-x' not in sys.argv
+    parser = argparse.ArgumentParser(description="Please use this syntax:")
+    parser.add_argument("-x", "--xml", help="Optional XML Filename", type=str)
+    parser.add_argument("-u", "--username", help="Username", type=str, required=argrequired)
+    parser.add_argument("-i", "--ipaddress", help="IP or FQDN of PA/Panorama", type=str, required=argrequired)
+    args = parser.parse_args()
+
+    # IF XML, do not connect to PA/Pan
+    if args.xml:
         settings.PUSH_CONFIG_TO_PA = False
-        filename = sys.argv[1]
+        filename = args.xml
         becu("n/a","n/a","n/a","xml",filename)
         sys.exit(0)
-    elif len(sys.argv) != 3:
-        print("\nplease provide the following arguments:")
-        print(
-            "\tpython3 becu.py <PA/Panorama IP> <username>\n\n"
-        )
-        sys.exit(0)
-    else:
-        # Correct input, no filename, set to None
-        filename = None
 
     # Gather input
-    pa_ip = sys.argv[1]
-    username = sys.argv[2]
-    password = getpass("Enter Password: ")
+    pa_ip = args.ipaddress
+    username = args.username
+    password = getpass("Enter Password: ")    
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
-        paobj = pa_api.api_lib_pa(pa_ip, username, password, None)
+        paobj = pa_api.api_lib_pa(pa_ip, username, password, "test")
+        del(paobj)
     except:
         print(f"Error connecting to: {pa_ip}\nCheck username/password and network connectivity.")
         sys.exit(0)
 
     # PA or Panorama?
-    allowed = list("12")  # Allowed user input
-    incorrect_input = True
-    while incorrect_input:
-        pa_type = input(
-            """\nIs this a PA Firewall or Panorama?
-
-        1) PA (Firewall)
-        2) Panorama (PAN)
-
-        Enter 1 or 2: """
-        )
-
-        for value in pa_type:
-            if value not in allowed:
-                incorrect_input = True
-                break
-            else:
-                incorrect_input = False
-
-    if pa_type == "1":
-        pa_type = "pa"
-    else:
-        pa_type = "panorama"
+    pa_type = pa_api.get_pa_type()
 
     # Run program
     print("\nThank you...connecting..\n")
-    becu(pa_ip, username, password, pa_type, filename)
+    becu(pa_ip, username, password, pa_type)
