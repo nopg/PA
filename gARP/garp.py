@@ -67,9 +67,6 @@ def iterdict(d, searchfor):
         if searchfor in k:
             return v
         elif isinstance(v, dict):
-            if not v:
-                print(f"system error..\nk={k}\nv={v}")
-                sys.exit(0)
             return iterdict(v, searchfor)
         else:
             pass
@@ -118,6 +115,7 @@ def address_lookup(entry):
 
 
 def add_review_entry(entry, type):
+    
     if type == "disabled":
         mem.review_nats.append(f"Disabled Rule: Check {entry['@name']}")
     elif type == "dnat":
@@ -132,20 +130,26 @@ def add_review_entry(entry, type):
 
     pa_api.create_xml_files(entry, f"api/review/review-{entry['@name']}.xml")
 
+    return None
 
-def add_garp_command(ip, ifname):
+
+def add_garp_command(ip, ifname, nat=None):
     """
     Update global garp_commands list.
     First remove the subnet mask from the 'ip' received.
     example: 'test arp gratuitous ip 5.5.5.4 interface ethernet1/1'
     """
-    ip = ip.split("/", 1)[0]  # removes anything in IP after /, ie /24
+    # Update Global Table
+    if not nat:
+        mem.ip_to_eth_dict.update({ip: ifname})
+    # Removes anything in IP after /, ie /24
+    ip = ip.split("/", 1)[0]  
     garp_command = f"test arp gratuitous ip {ip} interface {ifname}"
     return garp_command
 
 
 
-def process_interface_entries(entry):
+def process_interface_entry(entry):
     # Set interface name
     ifname = entry["@name"]
     commands = []
@@ -156,89 +160,68 @@ def process_interface_entries(entry):
         errors = []
         # Normal IP Address on interface
         if "ip" in entry["layer3"]:
-            # Secondary IP Addresses
-            if type(entry["layer3"]["ip"]["entry"]) is list:
-                for xip in entry["layer3"]["ip"]["entry"]:
-                    ip = xip["@name"]
-                    found = True
-                    mem.ip_to_eth_dict.update({ip: ifname})
-                    commands.append(add_garp_command(ip, ifname))
-            else:  # Normal 1 IP on 1 interface
-                found = True
+            found = True
+            try:
+                # Normal 'test arp' generation
                 ip = entry["layer3"]["ip"]["entry"]["@name"]
-                mem.ip_to_eth_dict.update({ip: ifname})
                 commands.append(add_garp_command(ip, ifname))
+            except:
+                # Secondary addresses, 'test arp'
+                for x_ip in entry["layer3"]["ip"]["entry"]:
+                    ip = x_ip["@name"]
+                    commands.append(add_garp_command(ip, ifname))
 
         # Sub Interfaces
         if "units" in entry["layer3"]:
-            # Sub Interfaces
-
-            if isinstance(entry["layer3"]["units"]["entry"], list):
-
-                for subif in entry["layer3"]["units"]["entry"]:
-                    # Set new (sub)interface name
-                    subifname = subif["@name"]
-                    # Secondary IP Addresses
-                    if "ip" in subif:
-                        if type(subif["ip"]["entry"]) is list:
-                            for subif_xip in subif["ip"]["entry"]:
-                                found = True
-                                ip = subif_xip["@name"]
-                                mem.ip_to_eth_dict.update({ip: subifname})
-                                commands.append(add_garp_command(ip, subifname))
-                        else:  # Normal 1 IP on Subinterface
-                            found = True
-                            ip = subif["ip"]["entry"]["@name"]
-                            mem.ip_to_eth_dict.update({ip: subifname})
-                            commands.append(add_garp_command(ip, subifname))
-                    else:
-                        err = (
-                            f"No IP address found (e4)-(DHCP?), {subifname}"
-                        )
-                        errors.append(err)
-            else:  
-                # Only one Sub Interface
+            try:
                 subifname = entry["layer3"]["units"]["entry"]["@name"]
-
+                # 1 Subif, 1 IP
                 if "ip" in entry["layer3"]["units"]["entry"]:
-
+                    found = True
                     ip = entry["layer3"]["units"]["entry"]["ip"]
-
-                    if isinstance(ip, list):
-                        for subif_xip in ip:
-                            found = True
-                            ip = subif_xip["@name"]
-                            mem.ip_to_eth_dict.update({ip: subifname})
-                            commands.append(add_garp_command(ip, subifname))
-                    else:
-                        found = True
-                        ip = ip["entry"]["@name"]
-                        mem.ip_to_eth_dict.update({ip: subifname})
-                        commands.append(add_garp_command(ip, subifname))
+                    try:    # Subif Generate 'test arp'
+                        ip = entry["entry"]["@name"]
+                        commands.append(add_garp_command(ip, ifname))
+                    except: # Secondary addresses, 1 Subif, 'test arp'
+                         for x_ip in ip:
+                             ip_ = x_ip["@name"]
+                             commands.append(add_garp_command(ip_, subifname))
                 else:
-                    err = (
-                        f"No IP address found (e3)-(DHCP?), {subifname}"
-                    )
-                    errors.append(err)                 
+                    errors.append(f"No IP address found (e1)-(DHCP?), {subifname}") 
+            except: # Multiple Subinterfaces
+                for subif in entry["layer3"]["units"]["entry"]:
+                    subifname = subif["@name"]
 
-        if not found:  # Probably DHCP, should be added
-            err = (
-                f"No IP address found (e1)-(DHCP?), {ifname}"
-            )
-            errors.append(err)
-            return errors
-        else:
+                    if "ip" in subif:
+                        found = True
+                        try:    # Subif Generate 'test arp'
+                            ip = subif["ip"]["entry"]["@name"]
+                            commands.append(add_garp_command(ip, subifname))
+                        except: # Secondary addresses on subinterface, 'test arp'
+                            for x_ip in subif["ip"]["entry"]:
+                                ip_ = x_ip["@name"]
+                                commands.append(add_garp_command(ip, subifname))
+                    else:
+                        errors.append(f"No IP address found (e2)-(DHCP?), {subifname}")             
+
+        if found:  
             return commands
+        else:   # Probably DHCP, let DHCP handle it.
+            errors.append(
+                f"No IP address found (e3)-(DHCP?), {ifname}"
+            )
+            return errors
 
     else:  # No 'layer3', no IP Address here.
-        error = f"No IP address found (e2), {ifname}"
-        return error
+        test_garp = f"No IP address found (e4)-(DHCP?), {ifname}"
+        return test_garp
     
 
 
-def process_nat_entries(entry):
-    ip = None
+def process_nat_entry(entry):
     
+    commands = []
+
     if "disabled" in entry:
         if entry["disabled"] == "yes":
             add_review_entry(entry, "disabled")
@@ -250,57 +233,50 @@ def process_nat_entries(entry):
 
         # Returns Address Object typically, could also be an IP
         # Usually 'translated-address' but also check for 'interface-address'
-        addr_obj = iterdict(snat, "translated-address")
-        if addr_obj:
-            # If it's a dictionary, we have multiple IP's
-            if isinstance(addr_obj, dict):
+        x_addr_obj = iterdict(snat, "translated-address")
+        int_addr_obj = iterdict(snat, "interface-address")
+
+        # 'translated-address'
+        if x_addr_obj:
+            try: # Find the real-ip from the address-object, add 'test arp'
+                ips = address_lookup(x_addr_obj)
+                for ip in ips:
+                    # Set the interface name
+                    ifname = interface_lookup(ip)
+                    if not ifname:
+                        ifname = "INTERFACE NOT FOUND"
+                    commands.append(add_garp_command(ip, ifname, "nat"))
+            except: # I think the only use-case is dynamic-pat with multiple pat pools/ip's.
+                print("\nDYNAMIC PAT MULTIPLE IP'S? IF NOT PLEASE LET ME KNOW\n")
                 ipobjs = []
-                if isinstance(addr_obj["member"], list):
-                    [ipobjs.append(o) for o in addr_obj["member"]]
+                if isinstance(x_addr_obj["member"], list):
+                    [ipobjs.append(obj) for obj in addr_obj["member"]]
                 else:
-                    ipobjs.append(addr_obj["member"])
-                # Find the real-ip from the address object
+                    ipobjs.append(x_addr_obj["member"])
+                
                 for ipobj in ipobjs:
                     ips = address_lookup(ipobj)
-                    commands = []
                     for ip in ips:
                         ifname = interface_lookup(ip)
                         if not ifname:
                             ifname = "INTERFACE NOT FOUND"
-                        commands.append(add_garp_command(ip, ifname))
-                    return commands
-            else:
-                # Find the real-ip from the address object
-                ips = address_lookup(addr_obj)
-                commands = []
+                        commands.append(add_garp_command(ip, ifname, "nat"))
+        if int_addr_obj:    # Dynamic IP and Port / Interface Address
+            ifname = int_addr_obj["interface"]
+
+            if "ip" in int_addr_obj:
+                ipobj = int_addr_obj["ip"]
+                ips = address_lookup(ipobj)
                 for ip in ips:
-                    ifname = interface_lookup(ip)
-                    if not ifname:
-                        ifname = "INTERFACE NOT FOUND"
-                    commands.append(add_garp_command(ip, ifname))
-                return commands
+                    commands.append(add_garp_command(ip, ifname, "nat"))
+            else: # No IP Found (DHCP?), we have interface already, should have 'test arp' command from that.
+                ip = "IP NOT FOUND, ARP TAKEN CARE OF VIA: "
+                commands.append(add_garp_command(ip, ifname, "nat"))
+        
+        if commands:
+            return commands
         else:
-            # Checking for interface-address?
-            addr_obj = iterdict(snat, "interface-address")
-            if addr_obj:
-                ifname = snat["dynamic-ip-and-port"]["interface-address"][
-                    "interface"
-                ]
-                if "ip" in snat["dynamic-ip-and-port"]["interface-address"]:
-                    ipobj = snat["dynamic-ip-and-port"]["interface-address"][
-                        "ip"
-                    ]
-                    ips = address_lookup(ipobj)
-                    for ip in ips:
-                        return add_garp_command(ip, ifname)
-                else:  # No IP found(DHCP?), since we have interface should already have a 'test' command for it
-                    ip = "IP NOT FOUND, ARP taken care of via: "
-                    return add_garp_command(ip, ifname)
-            else:  # SNAT Misconfigured
-                error =  (
-                    f"Error, SNAT configured without a translated IP, {snat}"
-                )
-                return error
+            return f"Error, SNAT possibly misconfigured, {snat}"
     
     return None
 
@@ -314,9 +290,9 @@ def build_garp_commands(input_type, entries):
     """
     # Set whether this is NAT or Interface based
     if input_type == "ethernet" or input_type == "aggregate-ethernet":
-        process_entries = process_interface_entries 
+        process_entries = process_interface_entry
     elif input_type == "pre-nat-rules" or input_type == "post/nat-rules":
-        process_entries = process_nat_entries
+        process_entries = process_nat_entry
     else:
         print(f"Unsupported Type - {input_type}")
         sys.exit(0)
@@ -324,17 +300,19 @@ def build_garp_commands(input_type, entries):
     # Begin
     results = []
     if entries:
+
+        entries = entries["entry"]
         print(f"Searching through {input_type}")
 
-        entries_ = entries["entry"]
-        if isinstance(entries_, list):
-            # Normal operations, process each entry individually, build the output.
-            for entry in entries_:
-                results.append(process_entries(entry))
-        else:
+        if not isinstance(entries, list):
             # Only 1 entry, run once and return it as a list.
-            results = process_entries(entries_)
+            results = process_entries(entries)
             return [results]
+        else:
+            # Normal operations, process each entry individually, build the output.
+            for entry in entries:
+                results.append(process_entries(entry))
+
         # Returns the list of 'test arp' commands based on the input type received.
         return results
 
