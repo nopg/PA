@@ -126,17 +126,24 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
         with open(filename) as fin:
             print("\nUploading Configuration, Please Wait....")
             response = pa.import_named_configuration(fin)
-
         error_check(response, "Importing Configuration")
-
         print("\nConfig Uploaded.")
         
         load_config = ""
         while load_config.lower() not in ("y", "n"):
             load_config = input("\nLoad config as candidate configuration? [y/n]: ")
-        if load_config == "n":
-            print("\nThank you, finished.\n")
-        else:
+
+        if load_config == "y":
+            if pa.pa_type == "panorama":
+                same_dg = ""
+                while same_dg.lower() not in ("y", "n"):
+                    same_dg = input(f"Push to existing Device Group ({pa.device_group})? [y/n]: ")
+
+            # Update xpath to new device-group
+            if same_dg == "n":
+                new_device_group = get_device_group(pa)
+                xpath = xpath.replace(pa.device_group, new_device_group)
+
             load_url = f"https://{pa.pa_ip}:443/api/?type=op&key={pa.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{filename}</from></partial></config></load>"
             
             response = pa.session[pa.pa_ip].get(load_url, verify=False)
@@ -145,6 +152,8 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
             print("\nCandidate configuration successfully loaded...enjoy the new ruleset!")
             print("Review configuration and Commit manually via the GUI.\n")
+        else:
+            print("\nThank you, finished.\n")
     
     return None
 
@@ -250,6 +259,25 @@ def modify_rules(security_rules):
     return modified_rules
 
 
+def get_device_group(pa):
+
+    incorrect_input = True
+    while incorrect_input:
+        device_groups, _ = pa.grab_panorama_objects()
+        print("--------------\n")
+        print("Device Groups:")
+        print("--------------")
+        for dg in device_groups:
+            print(dg)
+        device_group = input("\nEnter the Device Group Name: ")
+
+        if device_group in device_groups:
+            incorrect_input = False
+        else:
+            print("\n\nERROR: Template or Device Group not found.\n")
+    
+    return device_group
+
 def becu(pa_ip, username, password, pa_type, filename=None):
     """
     Main point of entry.
@@ -273,22 +301,14 @@ def becu(pa_ip, username, password, pa_type, filename=None):
     elif pa_type == "panorama":
 
         # Grab the Device Groups and Template Names, we don't need Template names.
-        device_groups, _ = pa.grab_panorama_objects()
-
-        print("--------------\n")
-        print("Device Groups:")
-        print("--------------")
-        for dg in device_groups:
-            print(dg)
-            
-        pa.device_group = input("\nEnter the Device Group Name (CORRECTLY!): ")
+        pa.device_group = get_device_group(pa)
 
         # Grab 'start' time
         start = time.perf_counter()
     
         # Set the XPath now that we have the Device Group
-        XPATH_PRE = pa_api.XPATH_PRE_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_POST = pa_api.XPATH_POST_SECURITY_RULES_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
         pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "api/pre-rules.xml")
