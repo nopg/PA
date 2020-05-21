@@ -101,7 +101,7 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
     # Always create an output file with the modified-rules.
     if not filename:
-        filename = "modified-pa-rules.xml"
+        filename = "output/modified-pa-rules.xml"
     # Prepare output
     add_entry_tag = {"entry": modified_rules}   # Adds the <entry> tag to each rule
     modified_rules_xml = {"config": {"security": {"rules": add_entry_tag} } } # Provides an xpath for importing
@@ -116,6 +116,7 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
     if settings.PUSH_CONFIG_TO_PA:
         # Ask for filename
         print("\n\tUploading to PA/Panorama:")
+        print("\n\t(Include 'foldername/' if modifying)")
         new_filename = input(f"\tFilename[{filename}]: ")
         # Accept default, if entered, update and rename on filesystem
         if new_filename:
@@ -139,15 +140,15 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
                 while same_dg.lower() not in ("y", "n"):
                     same_dg = input(f"Push to existing Device Group ({pa.device_group})? [y/n]: ")
 
-            # Update xpath to new device-group
-            if same_dg == "n":
-                new_device_group = get_device_group(pa)
-                xpath = xpath.replace(pa.device_group, new_device_group)
+                # Update xpath to new device-group
+                if same_dg == "n":
+                    new_device_group = get_device_group(pa)
+                    xpath = xpath.replace(pa.device_group, new_device_group)
 
-            load_url = f"https://{pa.pa_ip}:443/api/?type=op&key={pa.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{filename}</from></partial></config></load>"
+            fname = filename.rsplit('/', 1)[1]  # Get filename, strip any folders before the filename.
+            load_url = f"https://{pa.pa_ip}:443/api/?type=op&key={pa.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{fname}</from></partial></config></load>"
             
             response = pa.session[pa.pa_ip].get(load_url, verify=False)
-
             error_check(response, "Loading Configuration")
 
             print("\nCandidate configuration successfully loaded...enjoy the new ruleset!")
@@ -296,7 +297,7 @@ def becu(pa_ip, username, password, pa_type, filename=None):
         # Grab XML file, modify rules, and create output file.
         security_rules = grab_xml_or_json_file(filename)
         modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
-        output_and_push_changes(modified_rules, "modified-xml-rules.xml")
+        output_and_push_changes(modified_rules, "output/modified-xml-rules.xml")
 
     elif pa_type == "panorama":
 
@@ -311,27 +312,27 @@ def becu(pa_ip, username, password, pa_type, filename=None):
         XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
-        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "api/pre-rules.xml")
-        post_security_rules = pa.grab_api_output("xml", XPATH_POST, "api/post-rules.xml")
+        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
+        post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
         if pre_security_rules["result"]:
             modified_rules_pre = modify_rules(pre_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_pre,"modified-pre-rules.xml", XPATH_PRE, pa])
+            to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules["result"]:
             modified_rules_post = modify_rules(post_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_post,"modified-post-rules.xml", XPATH_POST, pa])
+            to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
         # Grab 'start' time
         start = time.perf_counter()
         # Grab Rules
         XPATH = pa_api.XPATH_SECURITYRULES
-        security_rules = pa.grab_api_output("xml", XPATH, "api/pa-rules.xml")
+        security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
         if security_rules["result"]:
             # Modify the rules, append to be output
             modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules,"modified-pa-rules.xml", XPATH, pa])
+            to_output.append([modified_rules,"output/modified-pa-rules.xml", XPATH, pa])
 
     # Begin creating output and/or pushing rules to PA/PAN
     for ruletype in to_output:
