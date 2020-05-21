@@ -9,7 +9,7 @@ NEW_PRIVATE_INTRAZONE = "NEW-PRIVATE-ZONE-NAME"
 EXISTING_PRIVATE_ZONES = {
     "dmz":"NEW-DMZ-OBJ", 
     "trusted":"NEW-TRUST-OBJ",
-    "onprem":"NEW-ONPREM-OBJ",
+    "onprem":"NEW-ONPREM-OBJ"
 }
 
 ####### EDIT ABOVE ############################################################################

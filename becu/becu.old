@@ -181,44 +181,65 @@ def modify_rules(security_rules):
         """
 
         try:
-            if not isinstance(x_zone, list):
-                x_zone = [x_zone]
-                newrule[tofrom]["member"] = [newrule[tofrom]["member"]]
-            if not isinstance(x_addr, list):
-                x_addr = [x_addr]
-                newrule[srcdst]["member"] = [newrule[srcdst]["member"]]
+            if isinstance(x_zone, list):
+                count = 0
+                for zone in x_zone: 
+                    if zone in settings.EXISTING_PRIVATE_ZONES:
+                        # Zone found, update this zone to the new private intra-zone
+                        newrule[tofrom]["member"].remove(zone)
+                        if settings.NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
+                            newrule[tofrom]["member"].append(settings.NEW_PRIVATE_INTRAZONE)
 
-            for zone in x_zone: 
-                if zone in settings.EXISTING_PRIVATE_ZONES:
-                    # Zone found, update this zone to the new private intra-zone
-                    newrule[tofrom]["member"].remove(zone)
-                    if settings.NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
-                        newrule[tofrom]["member"].append(settings.NEW_PRIVATE_INTRAZONE)
+                        # Get the address/group object associated to this zone
+                        new_addr_obj = settings.EXISTING_PRIVATE_ZONES[zone]
 
-                    # Get the address/group object associated to this zone
-                    new_addr_obj = settings.EXISTING_PRIVATE_ZONES[zone]
-
-                    for x in x_addr:
-                        if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
-                            if "any" in newrule[srcdst]["member"]:
-                                newrule[srcdst]["member"].remove("any")
-                            if new_addr_obj not in newrule[srcdst]["member"]:
+                        if isinstance(x_addr, list):
+                            for x in x_addr:
+                                if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
+                                    newrule[srcdst]["member"].remove("any")
+                                    newrule[srcdst]["member"].append(new_addr_obj)
+                        elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
+                            if count == 1:  # Corner case; 2 zones, 1 existing address object, convert to list
+                                count += 1
+                                newrule[srcdst]["member"] = list(newrule[srcdst]["member"].split())
                                 newrule[srcdst]["member"].append(new_addr_obj)
-                else:
-                    zonenotfound = f"{zone:<15} zone not found, not updating this zone."
-                    rulename = f"Rule Name: {newrule['@name']}"
-                    print(f"{rulename:<50}\t{zonenotfound:<10}")
+                            elif count > 1:
+                                newrule[srcdst]["member"].append(new_addr_obj)
+                            else:
+                                count += 1
+                                newrule[ srcdst]["member"] = new_addr_obj
+                    # Not Found in Existing List, let the user know just in case.
+                    else:
+                        zonenotfound = f"{zone:<15} zone not found, not updating this zone."
+                        rulename = f"Rule Name: {newrule['@name']}"
+                        print(f"{rulename:<50}\t{zonenotfound:<10}")
+                        
+            elif x_zone in settings.EXISTING_PRIVATE_ZONES:
+                # Zone found, update this zone to the new private intra-zone
+                newrule[tofrom]["member"] = settings.NEW_PRIVATE_INTRAZONE
+
+                # Get the address/group object associated to this zone
+                new_addr_obj = settings.EXISTING_PRIVATE_ZONES[x_zone]
+                if isinstance(x_addr, list):
+                    for x in x_addr:
+                        if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
+                            newrule[srcdst]["member"].remove("any")
+                            newrule[srcdst]["member"].append(new_addr_obj)
+
+                elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
+                    newrule[srcdst]["member"] = new_addr_obj
+
+            # Not Found in Existing List, let the user know just in case.
+            else:
+                zonenotfound = f"{x_zone:<15} zone not found, not updating this zone."
+                rulename = f"Rule Name: {newrule['@name']}"
+                print(f"{rulename:<50}\t{zonenotfound:<10}")
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
-            sys.exit(0)              
-
-        if len(newrule[tofrom]["member"]) == 1:
-            newrule[tofrom]["member"] = newrule[tofrom]["member"][0]
-        if len(newrule[srcdst]["member"]) == 1:
-            newrule[srcdst]["member"] = newrule[srcdst]["member"][0]
+            sys.exit(0)
     
-        return None # This function modifies the local variable newrule
+        return None # This function modifies the local newrule
 
     modified_rules = []
     if not isinstance(security_rules, list):
