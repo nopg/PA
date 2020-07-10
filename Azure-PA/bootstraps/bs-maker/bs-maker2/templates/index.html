@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+
+    <div class="content-section">
+      <form method="POST" action="">
+        <fieldset>
+        {{ form.hidden_tag()}}
+
+        {{ form.pahostname.label(class="form-control-label") }}
+        {{ form.pahostname(class="form-control form-control-lg") }}
+
+        {{ form.paprivateip.label(class="form-control-label") }}
+        {{ form.paprivateip(class="form-control form-control-lg") }}
+
+        {{ form.paprivatenexthop.label(class="form-control-label") }}
+        {{ form.paprivatenexthop(class="form-control form-control-lg") }}
+
+        {{ form.papublicip.label(class="form-control-label") }}
+        {{ form.papublicip(class="form-control form-control-lg") }}
+
+        {{ form.papublicnexthop.label(class="form-control-label") }}
+        {{ form.papublicnexthop(class="form-control form-control-lg") }}
+      </fieldset>
+      <div class="form-check">
+        {{ form.submit(class="btn btn-outline-info") }}
+      </div>
+      </form>
+    </div>
+
+{% endblock content %}
