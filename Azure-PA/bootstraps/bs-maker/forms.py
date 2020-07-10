@@ -8,6 +8,8 @@ class HomePage(FlaskForm):
     paprivatenexthop = StringField('PA Private Next Hop Gateway IP', validators=[DataRequired()])
     papublicip = StringField('PA Public IP', validators=[DataRequired()])
     papublicnexthop = StringField('PA Public Next Hop Gateway IP', validators=[DataRequired()])
+    folder_name = StringField('AZStorage Folder Name', validators=[DataRequired()])
+    connection_string = StringField('AZStorage Connection String', validators=[DataRequired()])
     submit = SubmitField('Build Bootstrap File')
 
 # class LoginForm(FlaskForm):
