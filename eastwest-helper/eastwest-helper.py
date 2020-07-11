@@ -1,15 +1,8 @@
 """
 Description: 
-    Cloud/Intrazone PA Security Rules Migration
+    East/West Segmentation Security-Policy Migration Helper
 
-    This script can be used to migrate existing PA Security Rules to an 'intrazone' design.
-    This rule design may become a typical 'cloud style' design. Let's hope zone-based can make a comeback.
-    
-    You can stay offline and load XML files and spit out the modified results, or
-    You can connect to a PA or Panorama and pull the rules from there.
-    Once the rules have been modified a file will be created in the existing directory, with the new rules.
-    If PUSH_CONFIG_TO_PA global variable is True, it will then prompt for upload/configuration preferences.
-    See 'Cautions' below for more usage info.
+    This script can be used to migrate 
 
 Requires:
     requests
@@ -26,18 +19,11 @@ Tested:
     PA VM100, Panorama
 
 Example usage:
-        $ python becu.py <PA(N) mgmt IP> <username>
+        $ python eastwest-helper.py -i <PA(N) mgmt IP> -u <username>
         Password: 
 
 Cautions:
-    This script uses 2 global dictionaries found in zone_settings.py (global for easy end-user modification)
-     - EXISTING_PRIVATE_ZONES
-        type 'dictionary'
-        The key is any (typically trusted) zone name that should be updated, due to intra-zone conversion.
-        The value is the name of the address or address-group that is associated with the above zone.
-        The address/group object should already exist in the PA configuration.
-     - NEW_PRIVATE_INTRAZONE
-        type 'string', the new trusted/private zone name to be used for all intra-zone traffic.
+    This script is still under development
 
 Legal:
     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
@@ -52,17 +38,23 @@ Legal:
 from getpass import getpass
 import sys
 import os
+import concurrent.futures
 import json
 import time
 import xml.dom.minidom
 import copy
 import argparse
+import ipcalc
 
 import xmltodict
 import api_lib_pa as pa_api
 import zone_settings as settings
 
 ###############################################################################################
+
+class mem:
+    address_object_entries = None
+    address_group_entries = None
 
 def grab_xml_or_json_file(filename):
     """
@@ -95,6 +87,63 @@ def error_check(response, operation):
         print(f"Response Code: {response.status_code}")
         print(f"Response: {response.text}\n\n")
         sys.exit(0)
+
+
+def address_group_lookup(entry):
+
+    found = False
+
+    if not isinstance(mem.address_group_entries,list):
+        mem.address_group_entries = [mem.address_group_entries]
+
+    for addr_group in mem.address_group_entries:
+        if entry in addr_group.get("@name"):
+            if "member" in addr_group.get("static"):
+                found = True
+                member_objects = addr_group["static"]["member"]
+            else:
+                print("Not supported, hi.")
+    
+    if not found:
+        return None
+    else:
+        ips = []
+        for member in member_objects:
+            ips += address_lookup(member)
+        
+        return ips
+
+
+def address_lookup(entry):
+    """
+    Used to find the translated addresses objects on the PA/Panorama.
+    Runs another api call to grab the object and return it's value (the actual ip address)
+    If the NAT rule isn't using an object, we can assume this value is the IP address.
+    Returns a LIST
+    """
+
+    if not isinstance(mem.address_object_entries, list):
+        mem.address_object_entries = [mem.address_object_entries]
+
+    found = False
+    for addr_object in mem.address_object_entries:
+        if entry in addr_object.get("@name"):
+            if "ip-netmask" in addr_object:
+                found = True
+                ips = addr_object["ip-netmask"]
+            else:
+                found = True
+                ips = ['1.1.1.1']
+                #add_review_entry(addr_object, "not-ip-netmask")
+    if not found:
+        ips = entry 
+
+    if isinstance(ips,list):
+        pass # Good (for now)
+    else:
+        ips = [ips]
+
+    return ips # Always returns a list (currently)
 
 
 def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
@@ -159,16 +208,36 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
     return None
 
 
-def modify_rules(security_rules):
-    """
-    MODIFY SECURITY RULES
-    This accepts a dictionary of rules and modifies them to a cloud-based intra-zone ruleset.
-    This script utilizes EXISTING_PRIVATE_ZONES, and NEW_PRIVATE_INTRAZONE
+def addr_obj_check(addrobj):
 
-    :param security_rules: existing security rules
-    :return: modified_rules, new/modified security rule-set
+    ips = address_group_lookup(addrobj)
+
+    if not ips:
+        ips = address_lookup(addrobj)
+
+    for ip in ips:
+        iprange = ipcalc.Network(ip)
+        if settings.EXISTING_TRUST_SUBNET in iprange:
+            return True
+        else:
+            pass
+    
+    return False
+
+
+def should_be_cloned(sec_rule):
     """
-    def modify(srcdst, tofrom, x_zone, x_addr):
+    inner function (possibly to be moved outside later)
+    The bulk of the logic for rule modification is done here
+    Source & destination behave the same, this allows the same code to be used for both.
+
+    :param srcdst: the xml ZONE tag needed for insertion into the new rule
+    :param tofrom: the xml Address-Object tag needed for insertion into the new rule
+    :param x_zone: from or to, zone name
+    :param x_addr: source or destination, address/group object
+    """
+
+    def check_and_modify(srcdst, tofrom, x_zone, x_addr):
         """
         inner function (possibly to be moved outside later)
         The bulk of the logic for zone modification is done here
@@ -179,87 +248,115 @@ def modify_rules(security_rules):
         :param x_zone: from or to, zone name
         :param x_addr: source or destination, address/group object
         """
+        clone = False
 
         try:
-            if isinstance(x_zone, list):
-                count = 0
-                for zone in x_zone: 
-                    if zone in settings.EXISTING_PRIVATE_ZONES:
-                        # Zone found, update this zone to the new private intra-zone
-                        newrule[tofrom]["member"].remove(zone)
-                        if settings.NEW_PRIVATE_INTRAZONE not in newrule[tofrom]["member"]:
-                            newrule[tofrom]["member"].append(settings.NEW_PRIVATE_INTRAZONE)
+            if not isinstance(x_zone, list):
+                x_zone = [x_zone]
+                new_rule[tofrom]["member"] = [new_rule[tofrom]["member"]]
+            if not isinstance(x_addr, list):
+                x_addr = [x_addr]
+                new_rule[srcdst]["member"] = [new_rule[srcdst]["member"]]
 
-                        # Get the address/group object associated to this zone
-                        new_addr_obj = settings.EXISTING_PRIVATE_ZONES[zone]
-
-                        if isinstance(x_addr, list):
-                            for x in x_addr:
-                                if x == "any":  # The source/destination IP's are 'any', update the rule to use the new object
-                                    newrule[srcdst]["member"].remove("any")
-                                    newrule[srcdst]["member"].append(new_addr_obj)
-                        elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
-                            if count == 1:  # Corner case; 2 zones, 1 existing address object, convert to list
-                                count += 1
-                                newrule[srcdst]["member"] = list(newrule[srcdst]["member"].split())
-                                newrule[srcdst]["member"].append(new_addr_obj)
-                            elif count > 1:
-                                newrule[srcdst]["member"].append(new_addr_obj)
+            for zone in x_zone: 
+                if zone == settings.EXISTING_TRUST_ZONE:
+                    for addrobj in x_addr:
+                        if addrobj == "any":
+                            # Clone/Modify this
+                            clone = True
+                            new_rule[tofrom]["member"].remove(zone)
+                            if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
+                                new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
+                        else:
+                            # Check if we need to TAG Review
+                            to_clone = addr_obj_check(addrobj)
+                            if to_clone:
+                                clone = True
+                                if new_rule.get("tag"):
+                                    if isinstance(new_rule["tag"]["member"], list):
+                                        new_rule["tag"]["member"].append("autogen-review1")
+                                    else:
+                                        new_rule["tag"]["member"] = [new_rule["tag"]["member"]]
+                                        new_rule["tag"]["member"].append("autogen-review2")
+                                else:
+                                    new_rule["tag"]["member"] = "autogen-review3"
                             else:
-                                count += 1
-                                newrule[ srcdst]["member"] = new_addr_obj
-                    # Not Found in Existing List, let the user know just in case.
-                    else:
-                        zonenotfound = f"{zone:<15} zone not found, not updating this zone."
-                        rulename = f"Rule Name: {newrule['@name']}"
-                        print(f"{rulename:<50}\t{zonenotfound:<10}")
-                        
-            elif x_zone in settings.EXISTING_PRIVATE_ZONES:
-                # Zone found, update this zone to the new private intra-zone
-                newrule[tofrom]["member"] = settings.NEW_PRIVATE_INTRAZONE
-
-                # Get the address/group object associated to this zone
-                new_addr_obj = settings.EXISTING_PRIVATE_ZONES[x_zone]
-                if isinstance(x_addr, list):
-                    for x in x_addr:
-                        if x == "any": # The source/destination IP's are 'any', update the rule to use the new object
-                            newrule[srcdst]["member"].remove("any")
-                            newrule[srcdst]["member"].append(new_addr_obj)
-
-                elif x_addr == "any":   # The source/destination IP's are 'any', update the rule to use the new object
-                    newrule[srcdst]["member"] = new_addr_obj
-
-            # Not Found in Existing List, let the user know just in case.
-            else:
-                zonenotfound = f"{x_zone:<15} zone not found, not updating this zone."
-                rulename = f"Rule Name: {newrule['@name']}"
-                print(f"{rulename:<50}\t{zonenotfound:<10}")
+                                pass
+                else:
+                    zonenotfound = f"{zone:<15} zone not found, not updating this rule."
+                    rulename = f"Rule Name: {new_rule['@name']}"
+                    print(f"{rulename:<50}\t{zonenotfound:<10}")
+                print(f"hi-{clone}, blah={blah}")
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
-            sys.exit(0)
-    
-        return None # This function modifies the local newrule
+            sys.exit(0)              
 
-    modified_rules = []
+        # If I only made it a list to make it easier on myself, change it back.
+        if len(new_rule[tofrom]["member"]) == 1:
+            new_rule[tofrom]["member"] = new_rule[tofrom]["member"][0]
+        if len(new_rule[srcdst]["member"]) == 1:
+            new_rule[srcdst]["member"] = new_rule[srcdst]["member"][0]
+        
+        print(f"clone = {clone}\nnew_rule={new_rule}")
+        return clone
+    
+    new_rule = copy.deepcopy(sec_rule)
+
+    from_zone = sec_rule["from"]["member"]
+    to_zone = sec_rule["to"]["member"]
+    src_addr = sec_rule["source"]["member"]
+    dst_addr = sec_rule["destination"]["member"]
+
+    # Check and modify to intra-zone based rules
+    clone = check_and_modify("source", "from", from_zone,src_addr)
+
+    if clone:
+        check_and_modify("destination", "to", to_zone,dst_addr)
+    else:
+        clone = check_and_modify("destination", "to", to_zone,dst_addr)
+
+
+    if clone:
+        return new_rule
+    else:
+        return None
+
+
+def eastwest_addnew_zone(security_rules):
+    """
+    MODIFY SECURITY RULES
+    This accepts a dictionary of rules and 
+
+    :param security_rules: existing security rules
+    :return: modified_rules, new/modified security rule-set
+    """
+
+    def eastwest_add(sec_rule):
+        new_ruleset.append(sec_rule)
+        return None
+
+    def eastwest_clone(sec_rule):
+        new_ruleset.append(sec_rule)
+        return None
+    
+    new_ruleset = []
     if not isinstance(security_rules, list):
         security_rules = [security_rules]
     print("\nModifying...\n")
+
     for oldrule in security_rules:
-        newrule = copy.deepcopy(oldrule)
-        from_zone = oldrule["from"]["member"]
-        to_zone = oldrule["to"]["member"]
-        src_addr = oldrule["source"]["member"]
-        dst_addr = oldrule["destination"]["member"]
 
-        # Check and modify to intra-zone based rules
-        modify("source", "from", from_zone,src_addr)
-        modify("destination", "to", to_zone,dst_addr)
-
-        modified_rules.append(newrule)
+        # Check if rule should be cloned
+        new_rule = should_be_cloned(oldrule)
+        if new_rule:
+            eastwest_clone(new_rule)
+            eastwest_add(oldrule)
+        else:
+            eastwest_add(oldrule)
 
     print("..Done.")
-    return modified_rules
+    return new_ruleset
 
 
 def get_device_group(pa):
@@ -281,14 +378,16 @@ def get_device_group(pa):
     
     return device_group
 
-def becu(pa_ip, username, password, pa_type, filename=None):
+
+
+def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
     """
     Main point of entry.
     Connect to PA/Panorama.
     Grab security rules from pa/pan.
     Modify them for intra-zone migration.
     """
-    
+
     if pa_type != "xml":
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
     to_output = []
@@ -298,7 +397,7 @@ def becu(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
         # Grab XML file, modify rules, and create output file.
         security_rules = grab_xml_or_json_file(filename)
-        modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
+        modified_rules = eastwest_addnew_zone(security_rules["result"]["rules"]["entry"])
         output_and_push_changes(modified_rules, "output/modified-xml-rules.xml")
 
     elif pa_type == "panorama":
@@ -310,19 +409,24 @@ def becu(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
     
         # Set the XPath now that we have the Device Group
+        XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", pa.device_group)
+        XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", pa.device_group)
         XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
         XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
+        mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
+        mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
+
         pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
         if pre_security_rules["result"]:
-            modified_rules_pre = modify_rules(pre_security_rules["result"]["rules"]["entry"])
+            modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
             to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules["result"]:
-            modified_rules_post = modify_rules(post_security_rules["result"]["rules"]["entry"])
+            modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
             to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
@@ -330,10 +434,14 @@ def becu(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
         # Grab Rules
         XPATH = pa_api.XPATH_SECURITYRULES
+        XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ
+        XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP
+        mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
+        mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
         security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
         if security_rules["result"]:
             # Modify the rules, append to be output
-            modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
+            modified_rules = eastwest_addnew_zone(security_rules["result"]["rules"]["entry"])
             to_output.append([modified_rules,"output/modified-pa-rules.xml", XPATH, pa])
 
     # Begin creating output and/or pushing rules to PA/PAN
@@ -381,4 +489,4 @@ if __name__ == "__main__":
 
     # Run program
     print("\nThank you...connecting..\n")
-    becu(pa_ip, username, password, pa_type)
+    eastwesthelper(pa_ip, username, password, pa_type)
