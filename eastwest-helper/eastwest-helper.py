@@ -136,7 +136,7 @@ def address_lookup(entry):
                 ips = ['1.1.1.1']
                 #add_review_entry(addr_object, "not-ip-netmask")
     if not found:
-        ips = entry 
+        ips = entry + "/32"
 
     if isinstance(ips,list):
         pass # Good (for now)
@@ -210,12 +210,14 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
 def addr_obj_check(addrobj):
 
+    print(f"addrobj = {addrobj}")
     ips = address_group_lookup(addrobj)
-
+    print(f"ipsgrp = {ips}")
     if not ips:
         ips = address_lookup(addrobj)
-
+    print(f"ips = {ips}")
     for ip in ips:
+        print(ip)
         iprange = ipcalc.Network(ip)
         if settings.EXISTING_TRUST_SUBNET in iprange:
             return True
@@ -236,6 +238,26 @@ def should_be_cloned(sec_rule):
     :param x_zone: from or to, zone name
     :param x_addr: source or destination, address/group object
     """
+
+    def check_and_tag(addrobj):
+        # Check if we need to TAG Review
+        tagged = False
+        to_tag = addr_obj_check(addrobj)
+        if to_tag:
+            tagged = True
+            if "tag" in new_rule:
+                if isinstance(new_rule["tag"]["member"], list):
+                    new_rule["tag"]["member"].append(settings.REVIEW_TAG)
+                else:
+                    temp = new_rule["tag"]["member"]
+                    new_rule["tag"]["member"] = [temp, settings.REVIEW_TAG]
+            else:
+                new_rule["tag"] = {"member":settings.REVIEW_TAG}
+        else:
+            pass
+        
+        return tagged
+
 
     def check_and_modify(srcdst, tofrom, x_zone, x_addr):
         """
@@ -268,25 +290,16 @@ def should_be_cloned(sec_rule):
                             if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
                                 new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
                         else:
-                            # Check if we need to TAG Review
-                            to_clone = addr_obj_check(addrobj)
-                            if to_clone:
+                            print(f"b={addrobj}")
+                            tag = check_and_tag(addrobj)
+                            if tag:
                                 clone = True
-                                if new_rule.get("tag"):
-                                    if isinstance(new_rule["tag"]["member"], list):
-                                        new_rule["tag"]["member"].append("autogen-review1")
-                                    else:
-                                        new_rule["tag"]["member"] = [new_rule["tag"]["member"]]
-                                        new_rule["tag"]["member"].append("autogen-review2")
-                                else:
-                                    new_rule["tag"]["member"] = "autogen-review3"
-                            else:
-                                pass
+
                 else:
-                    zonenotfound = f"{zone:<15} zone not found, not updating this rule."
-                    rulename = f"Rule Name: {new_rule['@name']}"
-                    print(f"{rulename:<50}\t{zonenotfound:<10}")
-                print(f"hi-{clone}, blah={blah}")
+                    # zonenotfound = f"{zone:<15} zone not found, not updating this rule."
+                    # rulename = f"Rule Name: {new_rule['@name']}"
+                    # print(f"{rulename:<50}\t{zonenotfound:<10}")
+                    pass
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
@@ -298,7 +311,9 @@ def should_be_cloned(sec_rule):
         if len(new_rule[srcdst]["member"]) == 1:
             new_rule[srcdst]["member"] = new_rule[srcdst]["member"][0]
         
-        print(f"clone = {clone}\nnew_rule={new_rule}")
+        #print(f"clone = {clone}\nnew_rule={new_rule}")
+        if clone:
+            new_rule["@name"] = new_rule["@name"] + "-cloned"
         return clone
     
     new_rule = copy.deepcopy(sec_rule)
@@ -316,11 +331,10 @@ def should_be_cloned(sec_rule):
     else:
         clone = check_and_modify("destination", "to", to_zone,dst_addr)
 
-
     if clone:
         return new_rule
     else:
-        return None
+        return False
 
 
 def eastwest_addnew_zone(security_rules):
