@@ -210,14 +210,10 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
 def addr_obj_check(addrobj):
 
-    print(f"addrobj = {addrobj}")
     ips = address_group_lookup(addrobj)
-    print(f"ipsgrp = {ips}")
     if not ips:
         ips = address_lookup(addrobj)
-    print(f"ips = {ips}")
     for ip in ips:
-        print(ip)
         iprange = ipcalc.Network(ip)
         if settings.EXISTING_TRUST_SUBNET in iprange:
             return True
@@ -271,6 +267,7 @@ def should_be_cloned(sec_rule):
         :param x_addr: source or destination, address/group object
         """
         clone = False
+        singleip = True if settings.EXISTING_TRUST_SUBNET.endswith("/32") else False
 
         try:
             if not isinstance(x_zone, list):
@@ -284,21 +281,26 @@ def should_be_cloned(sec_rule):
                 if zone == settings.EXISTING_TRUST_ZONE:
                     for addrobj in x_addr:
                         if addrobj == "any":
-                            # Clone/Modify this
-                            clone = True
-                            new_rule[tofrom]["member"].remove(zone)
-                            if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
-                                new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
+                            if not singleip:
+                                # Clone/Modify this
+                                clone = True
+                                new_rule[tofrom]["member"].remove(zone)
+                                if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
+                                    new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
+                            else:
+                                # Single-IP, only clone/tag for review the rules relevant to the single IP
+                                pass
                         else:
-                            print(f"b={addrobj}")
+                            # Check address object against EXISTING_TRUST_SUBNET
                             tag = check_and_tag(addrobj)
                             if tag:
                                 clone = True
+                                new_rule[tofrom]["member"].remove(zone)
+                                if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
+                                    new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
 
                 else:
-                    # zonenotfound = f"{zone:<15} zone not found, not updating this rule."
-                    # rulename = f"Rule Name: {new_rule['@name']}"
-                    # print(f"{rulename:<50}\t{zonenotfound:<10}")
+                    # ZONE NOT RELEVANT TO THIS DISCUSSION
                     pass
 
         except TypeError:
@@ -311,7 +313,7 @@ def should_be_cloned(sec_rule):
         if len(new_rule[srcdst]["member"]) == 1:
             new_rule[srcdst]["member"] = new_rule[srcdst]["member"][0]
         
-        #print(f"clone = {clone}\nnew_rule={new_rule}")
+        # Return True/False
         if clone:
             new_rule["@name"] = new_rule["@name"] + "-cloned"
         return clone
@@ -331,6 +333,7 @@ def should_be_cloned(sec_rule):
     else:
         clone = check_and_modify("destination", "to", to_zone,dst_addr)
 
+    # Return new_rule or False
     if clone:
         return new_rule
     else:
