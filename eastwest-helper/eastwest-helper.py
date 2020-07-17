@@ -452,10 +452,11 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
-        if pre_security_rules["result"]:
-            modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
-        if post_security_rules["result"]:
+        if pre_security_rules["result"]["rules"]:
+            if "entry" in pre_security_rules["result"]["rules"]:
+                modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
+                to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
+        if post_security_rules["result"]["rules"]:
             modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
             to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
