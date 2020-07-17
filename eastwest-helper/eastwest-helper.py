@@ -44,8 +44,8 @@ import time
 import xml.dom.minidom
 import copy
 import argparse
-import ipcalc
 
+import ipcalc
 import xmltodict
 import api_lib_pa as pa_api
 import zone_settings as settings
@@ -213,9 +213,15 @@ def addr_obj_check(addrobj):
     ips = address_group_lookup(addrobj)
     if not ips:
         ips = address_lookup(addrobj)
+
+    found = False
     for ip in ips:
         iprange = ipcalc.Network(ip)
-        if settings.EXISTING_TRUST_SUBNET in iprange:
+        for subnet in settings.EXISTING_TRUST_SUBNET:
+            if subnet in iprange:
+                found = True
+
+        if found:
             return True
         else:
             pass
@@ -234,6 +240,16 @@ def should_be_cloned(sec_rule):
     :param x_zone: from or to, zone name
     :param x_addr: source or destination, address/group object
     """
+    def add_tag(tag):
+        if "tag" in new_rule:
+            if isinstance(new_rule["tag"]["member"], list):
+                new_rule["tag"]["member"].append(tag)
+            else:
+                temp = new_rule["tag"]["member"]
+                new_rule["tag"]["member"] = [temp, tag]
+        else:
+            new_rule["tag"] = {"member":tag}
+
 
     def check_and_tag(addrobj):
         # Check if we need to TAG Review
@@ -241,14 +257,7 @@ def should_be_cloned(sec_rule):
         to_tag = addr_obj_check(addrobj)
         if to_tag:
             tagged = True
-            if "tag" in new_rule:
-                if isinstance(new_rule["tag"]["member"], list):
-                    new_rule["tag"]["member"].append(settings.REVIEW_TAG)
-                else:
-                    temp = new_rule["tag"]["member"]
-                    new_rule["tag"]["member"] = [temp, settings.REVIEW_TAG]
-            else:
-                new_rule["tag"] = {"member":settings.REVIEW_TAG}
+            add_tag(settings.REVIEW_TAG)
         else:
             pass
         
@@ -267,7 +276,10 @@ def should_be_cloned(sec_rule):
         :param x_addr: source or destination, address/group object
         """
         clone = False
-        singleip = True if settings.EXISTING_TRUST_SUBNET.endswith("/32") else False
+        singleip = False
+        for subnet in settings.EXISTING_TRUST_SUBNET:
+            if subnet.endswith("/32"):
+                singleip = True
 
         try:
             if not isinstance(x_zone, list):
@@ -284,7 +296,7 @@ def should_be_cloned(sec_rule):
                             if not singleip:
                                 # Clone/Modify this
                                 clone = True
-                                new_rule[tofrom]["member"].remove(zone)
+                                new_rule[tofrom]["member"].remove(zone) if zone in new_rule[tofrom]["member"] else clone
                                 if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
                                     new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
                             else:
@@ -295,7 +307,7 @@ def should_be_cloned(sec_rule):
                             tag = check_and_tag(addrobj)
                             if tag:
                                 clone = True
-                                new_rule[tofrom]["member"].remove(zone)
+                                new_rule[tofrom]["member"].remove(zone) if zone in new_rule[tofrom]["member"] else clone
                                 if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
                                     new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
 
@@ -315,6 +327,7 @@ def should_be_cloned(sec_rule):
         
         # Return True/False
         if clone:
+            add_tag(settings.CLONED_TAG)
             new_rule["@name"] = new_rule["@name"] + "-cloned"
         return clone
     
