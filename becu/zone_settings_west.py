@@ -12,8 +12,7 @@ EXISTING_EAST_OBJECTS = {
     "Azrue East Management Network":"Azure West Mgmt Network",
     "Azure East Partner Network":"Azure West Partner Network",
     "Azure East Secure Network":"Azure West Secure Network",
-    "Azure East Community Network":"Azure West_Community_Network",
-    "H-209.170.211.24-32":"ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+    "Azure East Community Network":"Azure West_Community_Network"
 }
 WEST_COMMERCE_EXTRA = "Commerce Prod ASE"
 
