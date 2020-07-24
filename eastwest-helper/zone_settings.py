@@ -12,7 +12,7 @@ EXISTING_TRUST_ZONE = "inside"         # Name of existing 'inside' zone containi
 NEW_EASTWEST_ZONE = "DataBase-Servers"        # Name of new zone that servers will be moving to
 
 EXISTING_TRUST_SUBNET = [
-    "10.15.71.0/24",        # Inside subnet(s) that will be moved to the new zone. Must be of type list.
+    "172.20.10.0/8",        # Inside subnet(s) that will be moved to the new zone. Must be of type list.
    #"192.168.78.0/24",      # Example if using more than one subnet. Uncomment and update.
    # SECOND SUBNET NOT YET SUPPORTED --- WILL BE SOON.
 ]

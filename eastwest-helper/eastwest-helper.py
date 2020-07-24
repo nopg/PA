@@ -251,19 +251,6 @@ def should_be_cloned(sec_rule):
             new_rule["tag"] = {"member":tag}
 
 
-    def check_and_tag(addrobj):
-        # Check if we need to TAG Review
-        tagged = False
-        to_tag = addr_obj_check(addrobj)
-        if to_tag:
-            tagged = True
-            add_tag(settings.REVIEW_TAG)
-        else:
-            pass
-        
-        return tagged
-
-
     def check_and_modify(srcdst, tofrom, x_zone, x_addr):
         """
         inner function (possibly to be moved outside later)
@@ -304,12 +291,16 @@ def should_be_cloned(sec_rule):
                                 pass
                         else:
                             # Check address object against EXISTING_TRUST_SUBNET
-                            tag = check_and_tag(addrobj)
+                            tag = addr_obj_check(addrobj)
                             if tag:
                                 clone = True
+                                add_tag(settings.REVIEW_TAG)
                                 new_rule[tofrom]["member"].remove(zone) if zone in new_rule[tofrom]["member"] else clone
                                 if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
                                     new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
+                            else:
+                                # Don't need this address object even if we end up cloning the rule.
+                                new_rule[srcdst]["member"].remove(addrobj)
 
                 else:
                     # ZONE NOT RELEVANT TO THIS DISCUSSION
