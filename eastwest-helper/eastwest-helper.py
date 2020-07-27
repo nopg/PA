@@ -216,7 +216,11 @@ def addr_obj_check(addrobj):
 
     found = False
     for ip in ips:
-        iprange = ipcalc.Network(ip)
+        try:
+            iprange = ipcalc.Network(ip)
+        except:
+            print("Non ip-netmask found, ignoring.")
+            
         for subnet in settings.EXISTING_TRUST_SUBNET:
             if subnet in iprange:
                 found = True
