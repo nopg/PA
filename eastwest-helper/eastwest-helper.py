@@ -444,7 +444,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
             if "entry" in temp:
                     mem.address_object_entries.append(temp)
         
-        temp = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
+        temp = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
         if temp:
             if "entry" in temp:
                 mem.address_group_entries.append(temp)
