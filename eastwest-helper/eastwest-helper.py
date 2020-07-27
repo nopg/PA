@@ -439,6 +439,16 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
         mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
 
+        temp = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
+        if temp:
+            if "entry" in temp:
+                    mem.address_object_entries.append(temp)
+        
+        temp = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
+        if temp:
+            if "entry" in temp:
+                mem.address_group_entries.append(temp)
+
         pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
@@ -448,8 +458,9 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
                 modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
                 to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules["result"]["rules"]:
-            modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
+            if "entry" in post_security_rules["result"]["rules"]:
+                modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
+                to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
         # Grab 'start' time

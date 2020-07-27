@@ -66,7 +66,9 @@ XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/ent
 #PAN:
 XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
 XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
+XPATH_ADDRESS_OBJ_SHARED = "/config/shared/address"
 XPATH_ADDRESS_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address"
+XPATH_ADDRESS_GRP_SHARED = "/config/shared/address-group"
 XPATH_ADDRESS_GRP_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address-group"
 XPATH_INTERFACES_PAN =    "/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='TEMPLATE_NAME']/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITY_RULES_PRE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
