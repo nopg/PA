@@ -218,17 +218,18 @@ def addr_obj_check(addrobj):
     for ip in ips:
         try:
             iprange = ipcalc.Network(ip)
+
+            for subnet in settings.EXISTING_TRUST_SUBNET:
+                if subnet in iprange:
+                    found = True
+
+            if found:
+                return True
+            else:
+                pass
+            
         except:
             print("Non ip-netmask found, ignoring.")
-            
-        for subnet in settings.EXISTING_TRUST_SUBNET:
-            if subnet in iprange:
-                found = True
-
-        if found:
-            return True
-        else:
-            pass
     
     return False
 
