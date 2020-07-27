@@ -227,7 +227,7 @@ def addr_obj_check(addrobj):
                 return True
             else:
                 pass
-            
+
         except:
             print("Non ip-netmask found, ignoring.")
     
@@ -462,10 +462,12 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
             if "entry" in pre_security_rules["result"]["rules"]:
                 modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
                 to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
-        if post_security_rules["result"]["rules"]:
-            if "entry" in post_security_rules["result"]["rules"]:
-                modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
-                to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
+        if post_security_rules:
+            if post_security_rules["result"]:
+                if post_security_rules["result"]["rules"]:
+                    if "entry" in post_security_rules["result"]["rules"]:
+                        modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
+                        to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
         # Grab 'start' time
