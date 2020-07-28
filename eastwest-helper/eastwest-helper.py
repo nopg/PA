@@ -93,9 +93,6 @@ def address_group_lookup(entry):
 
     found = False
 
-    if not isinstance(mem.address_group_entries,list):
-        mem.address_group_entries = [mem.address_group_entries]
-
     for addr_group in mem.address_group_entries:
         if entry in addr_group.get("@name"):
             if "member" in addr_group.get("static"):
@@ -122,11 +119,9 @@ def address_lookup(entry):
     Returns a LIST
     """
 
-    if not isinstance(mem.address_object_entries, list):
-        mem.address_object_entries = [mem.address_object_entries]
-
     found = False
     for addr_object in mem.address_object_entries:
+        #print(f"debug, addr-obj= {addr_object}")
         if entry in addr_object.get("@name"):
             if "ip-netmask" in addr_object:
                 found = True
@@ -136,7 +131,7 @@ def address_lookup(entry):
                 ips = ['1.1.1.1']
                 #add_review_entry(addr_object, "not-ip-netmask")
     if not found:
-        ips = entry + "/32"
+        ips = entry
 
     if isinstance(ips,list):
         pass # Good (for now)
@@ -217,7 +212,10 @@ def addr_obj_check(addrobj):
     found = False
     for ip in ips:
         try:
-            iprange = ipcalc.Network(ip)
+            tip = address_group_lookup(ip) # One level of nested address groups, just in case..
+            if not tip:
+                tip = ip
+            iprange = ipcalc.Network(tip)
 
             for subnet in settings.EXISTING_TRUST_SUBNET:
                 if subnet in iprange:
@@ -229,7 +227,7 @@ def addr_obj_check(addrobj):
                 pass
 
         except:
-            print("Non ip-netmask found, ignoring.")
+            print("Not supported, call me.")
     
     return False
 
@@ -444,15 +442,40 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
         mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
 
-        temp = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
-        if temp:
-            if "entry" in temp:
-                    mem.address_object_entries.append(temp)
+        if not isinstance(mem.address_object_entries, list):
+            mem.address_object_entries = [mem.address_object_entries]
+        if not isinstance(mem.address_group_entries,list):
+            mem.address_group_entries = [mem.address_group_entries]
+
+        shared_objs = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
+        if shared_objs:
+            if not isinstance(shared_objs, list):
+                shared_objs = [shared_objs]
+            mem.address_object_entries += shared_objs
         
-        temp = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
-        if temp:
-            if "entry" in temp:
-                mem.address_group_entries.append(temp)
+        print("Grabbing the Shared address objects and groups..")
+        shared_grps = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
+        if shared_grps:
+            if not isinstance(shared_grps, list):
+                shared_grps = [shared_grps]
+            mem.address_group_entries += shared_grps
+
+        if settings.OBJ_PARENT_DEVICE_GROUP:
+            XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+            XPATH_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+
+            print(f"Grabbing the {settings.OBJ_PARENT_DEVICE_GROUP} address objects and groups..")
+            shared_objs = pa.grab_address_objects("xml", XPATH_ADDR, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-objects.xml")
+            if shared_objs:
+                if not isinstance(shared_objs, list):
+                    shared_objs = [shared_objs]
+                mem.address_object_entries += shared_objs
+            
+            shared_grps = pa.grab_address_groups("xml", XPATH_GRP, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-groups.xml")
+            if shared_grps:
+                if not isinstance(shared_grps, list):
+                    shared_grps = [shared_grps]
+                mem.address_group_entries += shared_grps
 
         pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")

@@ -247,7 +247,11 @@ class api_lib_pa:
             xml_or_rest, xpath_or_restcall, filename
         )
         addr_objects = validate_output(address_objects)
-        return addr_objects["address"]["entry"] if addr_objects else None
+        if addr_objects:
+            if addr_objects["address"]:
+                return addr_objects["address"]["entry"]
+            else:
+                return None
 
 
     def grab_address_groups(self, xml_or_rest, xpath_or_restcall, filename=None,):
@@ -255,7 +259,11 @@ class api_lib_pa:
             xml_or_rest, xpath_or_restcall, filename
         )
         addr_grp_objects = validate_output(address_grp_objects)
-        return addr_grp_objects["address-group"]["entry"] if addr_grp_objects else None
+        if addr_grp_objects:
+            if addr_grp_objects["address-group"]:
+                return addr_grp_objects["address-group"]["entry"]
+            else:
+                return None
 
 
     # Grab Panorama Device Groups & Templates
