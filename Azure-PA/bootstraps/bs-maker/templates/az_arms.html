@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block content %}
+
+    <div class="content-section">
+      <p>To ensure the templates are up to date or suitable for your environment, please consult with a CompuNet Engineer before deploying.</p>
+        <hr>
+        <h1 id="lb-sandwich-2-palo-alto-vm-s">LB Sandwich - 2 Palo Alto VM&#39;s</h1>
+        <p>Deploys 2 PA VM&#39;s in a &#39;Load Balancer Sandwich&#39;. Bootstraps a working PA configuration allowing external access through the LB and PA&#39;s to a (manually built) internal server. Update the PA address objects with the correct IP&#39;s for the manually deployed web server.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fgenlb.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="1-palo-alto-vm-basic">1 Palo Alto VM, Basic</h1>
+        <p>Deploys 1 PA VM, building a new vNet with Route-Tables for Management/Public/Private networks.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fcnet-pa1.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="1-palo-alto-vm-with-bootstrap">1 Palo Alto VM, with Bootstrap</h1>
+        <p>Deploys 1 PA VM, building a new vNet with Route-Tables for Management/Public/Private networks. Bootstrap enabled.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fcnet-pa1-bootstrap.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="1-palo-alto-vm-into-existing-vnet">1 Palo Alto VM, into Existing vNet</h1>
+        <p>Deploys 1 PA VM, into an existing vNet, this is not recommended for production.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fcnet-pa1-existing-vnet.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="2-palo-alto-vm-s-lb-sandwich-poc">2 Palo Alto VM&#39;s, LB Sandwich - POC</h1>
+        <p><strong>(deprecated, replacement coming soon)</strong></p>
+        <p>Deploys 2 PA VM&#39;s in a &#39;Load Balancer Sandwich&#39;. Build&#39;s sample subnets and bootstraps a working PA configuration allowing access to a (manually built) web server in the Web subnet. Update the PA address objects with the correct IP&#39;s for the manually deployed web server.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fpoc-lbsand-deploy.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="basic-vnet-vm">Basic vNet &amp; VM</h1>
+        <p>Deploys 1 or more virtual network with Linux VM, building up to 10 (vNetCount). Can be updated to support higher count very easily, just ask.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fvmvnet.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="basic-vnet-vm-gateway">Basic vNet, VM, &amp; Gateway</h1>
+        <p>Deploys 1 or more virtual network, Linux VM, and vNet Gateway, building up to 10 (vNetCount). Can be updated to support higher count very easily, just ask.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fvmvnet-gw.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <h1 id="linux-vm-existing-vnet">Linux VM, Existing vNet</h1>
+        <p>Deploys a Linux VM in existing vNet...cleaner than using the marketplace.</p>
+        <p><a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Flinuxvm.json"><img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure"></a></p>
+        <hr>
+        <hr>
+
+    </div>
+
+{% endblock content %}

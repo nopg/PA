@@ -1,9 +1,10 @@
 import argparse
 import os
+import sys
 import xml.dom.minidom
 
 from azure.storage.fileshare import ShareClient
-from flask import Flask, render_template, url_for, flash, redirect
+from flask import Flask, render_template, url_for, flash, redirect, Markup
 import forms
 import xmltodict
 from jinja2 import Template
@@ -30,48 +31,97 @@ def create_xml_files(temp, filename):
     return None
 
 
-def update_bootstrap(filename, **kwargs):
+def update_bootstrap(templatefile1, templatefile2, **kwargs):
 
     # Create Bootstrap File
-    with open(filename) as fin:
-        template = Template(fin.read())
+    with open(templatefile1) as fin:
+        template1 = Template(fin.read())
+    with open(templatefile2) as fin:
+        template2 = Template(fin.read())
 
-    bootstrap = template.render(**kwargs)
-    create_xml_files(bootstrap, 'auto-bootstrap.xml')
+    bootstrap1 = template1.render(**kwargs)
+    create_xml_files(bootstrap1, 'auto-bootstrap1.xml')
+
+    bootstrap2 = template2.render(**kwargs)
+    create_xml_files(bootstrap2, 'auto-bootstrap2.xml')
 
     # Begin Azure 
     AZURE_STORAGE_CONNECTION_STRING = kwargs['connection_string']
-    folder = kwargs['folder_name']
+    fullpath = kwargs['folder_name']
 
     share = ShareClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING, "bootstrap")
-    az_bootstrap_str = f"{folder}/config/bootstrap.xml"
-    az_initcfg_str = f"{folder}/config/init-cfg.txt"
+    az_bootstrap_str1 = f"{fullpath}/fw1/config/bootstrap.xml"
+    az_bootstrap_str2 = f"{fullpath}/fw2/config/bootstrap.xml"
+    az_initcfg_str1 = f"{fullpath}/fw1/config/init-cfg.txt"
+    az_initcfg_str2 = f"{fullpath}/fw2/config/init-cfg.txt"
     
+    index = fullpath.rfind("/")
+    parentfolder = ""
+    if index == -1:
+        index = fullpath.rfind("\\")
+        if index == -1:
+            folder = fullpath
+    else:
+        parentfolder = fullpath[:index]
+        folder = fullpath[index:].strip("/\\") # Remove leading / or \
+        try:
+            temp = share.get_directory_client(parentfolder)
+            temp.get_directory_properties()
+        except:
+            share.create_directory(parentfolder)
+
     try:
-        share.create_directory(f"{folder}/config")
-        share.create_directory(f"{folder}/content")
-        share.create_directory(f"{folder}/license")
-        share.create_directory(f"{folder}/software")
+        temp = share.get_directory_client(parentfolder +'/'+ folder)
+        temp.get_directory_properties()
     except:
-        pass
+        share.create_directory(parentfolder +'/'+ folder)
+
+    try:
+        share.create_directory(f"{fullpath}/fw1")
+        share.create_directory(f"{fullpath}/fw2")
+
+        share.create_directory(f"{fullpath}/fw1/config")
+        share.create_directory(f"{fullpath}/fw1/content")
+        share.create_directory(f"{fullpath}/fw1/license")
+        share.create_directory(f"{fullpath}/fw1/software")
+
+        share.create_directory(f"{fullpath}/fw2/config")
+        share.create_directory(f"{fullpath}/fw2/content")
+        share.create_directory(f"{fullpath}/fw2/license")
+        share.create_directory(f"{fullpath}/fw2/software")
+
+    except Exception as e:
+        return f"Error: {e}", "danger"
 
     # [START upload_files]
-    az_bootstrap = share.get_file_client(az_bootstrap_str)
-    az_init_cfg = share.get_file_client(az_initcfg_str)
+    az_bootstrap1 = share.get_file_client(az_bootstrap_str1)
+    az_bootstrap2 = share.get_file_client(az_bootstrap_str2)
+    az_init_cfg1 = share.get_file_client(az_initcfg_str1)
+    az_init_cfg2 = share.get_file_client(az_initcfg_str2)
 
-    with open('auto-bootstrap.xml', "rb") as source:
-        az_bootstrap.upload_file(source)
-    
+    with open('auto-bootstrap1.xml', "rb") as source:
+        az_bootstrap1.upload_file(source)
+    with open('auto-bootstrap2.xml', "rb") as source:
+        az_bootstrap2.upload_file(source)
+
     with open('static/init-cfg.txt', "rb") as source:
-        az_init_cfg.upload_file(source)
+        az_init_cfg1.upload_file(source)
+    with open('static/init-cfg.txt', "rb") as source:
+        az_init_cfg1.upload_file(source)
 
     # [END upload_file]
 
-    return None
+    return f"Bootstrap created. File uploaded to '{kwargs['folder_name']}/config/bootstrap.xml'", "success"
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET"])
 def index():
+    # Create Form
+    return render_template("index.html", title="gMenu")
+
+
+@app.route("/bs_maker", methods=["GET", "POST"])
+def bs_maker():
     # Create Form
     form = forms.HomePage()
 
@@ -79,27 +129,36 @@ def index():
     if form.validate_on_submit():
         # Gather Args
         kwargs = {
-                    'hostname':form.pahostname.data,
-                    'private_ip':form.paprivateip.data,
-                    'public_ip':form.papublicip.data,
-                    'private_nexthop':form.paprivatenexthop.data,
-                    'public_nexthop':form.papublicnexthop.data,
+                    'hostname1':form.pahostname1.data,
+                    'private_ip1':form.paprivateip1.data,
+                    'public_ip1':form.papublicip1.data,
+                    'private_nexthop1':form.paprivatenexthop1.data,
+                    'public_nexthop1':form.papublicnexthop1.data,
+                    'hostname2':form.pahostname2.data,
+                    'private_ip2':form.paprivateip2.data,
+                    'public_ip2':form.papublicip2.data,
+                    'private_nexthop2':form.paprivatenexthop2.data,
+                    'public_nexthop2':form.papublicnexthop2.data,
                     'connection_string':form.connection_string.data,
                     'folder_name':form.folder_name.data
         }
         # Update bootstrap, alert user.
-        update_bootstrap('static/bs-template1.xml', **kwargs)
+        msg, successOrFail = update_bootstrap('static/bs-template1.xml', 'static/bs-template2.xml', **kwargs)
 
-        flash(f"Bootstrap created. File uploaded to 'cnetpalopublic/{kwargs['folder_name']}/config/bootstrap.xml'", "success")
+        if successOrFail == "success":
+            msg += """
 
-    return render_template("index.html", title="gMenu", form=form)
+                To begin Azure deployment, <a href='https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcnetpalopublic.blob.core.windows.net%2Farm-public%2Fgenlb.json'>click here.</a>
+                    
+                """
+            msg = Markup(msg)
+        flash(msg, successOrFail)
 
-@app.route("/basic", methods=["GET", "POST"])
-def basic():
-    form = forms.HomePage()
-    if form.validate_on_submit():
-        update_bootstrap('bs-template1.xml')
-    return render_template("temp.html", title="gMenu", form=form)
+    return render_template("bs-maker.html", title="PA Bootstrap Maker", form=form)
+
+@app.route("/az_arms", methods=["GET"])
+def az_arms():
+    return render_template("az_arms.html", title="Azure ARM Templates")
 
 
 @app.route("/about")

@@ -27,11 +27,11 @@ def update_bootstrap(filename):
     with open(filename) as fin:
         template = Template(fin.read())
 
-    hostname = "pavm2"
-    private_ip = "10.2.248.5"
-    public_ip = "10.2.1.5"
-    private_nexthop = "10.2.248.1"
-    public_nexthop = "10.2.1.1"
+    # hostname = "pavm2"
+    # private_ip = "10.2.248.5"
+    # public_ip = "10.2.1.5"
+    # private_nexthop = "10.2.248.1"
+    # public_nexthop = "10.2.1.1"
 
     bootstrap = template.render(hostname=hostname,
                                 private_ip=private_ip, 

@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+
+    <div class="content-section">
+      <hr>
+      <hr>
+      <b>
+        This initial form is used to generate the Palo Alto bootstrap configuration.
+      <p>
+        Please fill out the below values according to your desired network configuration.
+      </p>
+      <p>
+        Once complete, a link will be presented to begin the Azure deployment.
+      </p>
+      </b>
+      <hr>
+      <hr>
+      <form method="POST" action="">
+        <fieldset>
+          
+        {{ form.hidden_tag()}}
+
+        {{ form.pahostname1.label(class="form-control-label") }}
+        {{ form.pahostname1(class="form-control form-control-lg") }}
+
+        {{ form.paprivateip1.label(class="form-control-label") }}
+        {{ form.paprivateip1(class="form-control form-control-lg") }}
+
+        {{ form.paprivatenexthop1.label(class="form-control-label") }}
+        {{ form.paprivatenexthop1(class="form-control form-control-lg") }}
+
+        {{ form.papublicip1.label(class="form-control-label") }}
+        {{ form.papublicip1(class="form-control form-control-lg") }}
+
+        {{ form.papublicnexthop1.label(class="form-control-label") }}
+        {{ form.papublicnexthop1(class="form-control form-control-lg") }}
+
+        <hr>
+
+        {{ form.pahostname2.label(class="form-control-label") }}
+        {{ form.pahostname2(class="form-control form-control-lg") }}
+
+        {{ form.paprivateip2.label(class="form-control-label") }}
+        {{ form.paprivateip2(class="form-control form-control-lg") }}
+
+        {{ form.paprivatenexthop2.label(class="form-control-label") }}
+        {{ form.paprivatenexthop2(class="form-control form-control-lg") }}
+
+        {{ form.papublicip2.label(class="form-control-label") }}
+        {{ form.papublicip2(class="form-control form-control-lg") }}
+
+        {{ form.papublicnexthop2.label(class="form-control-label") }}
+        {{ form.papublicnexthop2(class="form-control form-control-lg") }}
+
+        <hr>
+
+        {{ form.folder_name.label(class="form-control-label") }}
+        {{ form.folder_name(class="form-control form-control-lg") }}
+
+        {{ form.connection_string.label(class="form-control-label") }}
+        {{ form.connection_string(class="form-control form-control-lg") }}
+
+      </fieldset>
+      <div class="form-check">
+        {{ form.submit(class="btn btn-outline-info") }}
+      </div>
+      </form>
+    </div>
+
+{% endblock content %}

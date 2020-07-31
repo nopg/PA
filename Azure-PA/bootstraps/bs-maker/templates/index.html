@@ -2,36 +2,21 @@
 {% block content %}
 
     <div class="content-section">
-      <form method="POST" action="">
-        <fieldset>
-        {{ form.hidden_tag()}}
-
-        {{ form.pahostname.label(class="form-control-label") }}
-        {{ form.pahostname(class="form-control form-control-lg") }}
-
-        {{ form.paprivateip.label(class="form-control-label") }}
-        {{ form.paprivateip(class="form-control form-control-lg") }}
-
-        {{ form.paprivatenexthop.label(class="form-control-label") }}
-        {{ form.paprivatenexthop(class="form-control form-control-lg") }}
-
-        {{ form.papublicip.label(class="form-control-label") }}
-        {{ form.papublicip(class="form-control form-control-lg") }}
-
-        {{ form.papublicnexthop.label(class="form-control-label") }}
-        {{ form.papublicnexthop(class="form-control form-control-lg") }}
-
-        {{ form.folder_name.label(class="form-control-label") }}
-        {{ form.folder_name(class="form-control form-control-lg") }}
-
-        {{ form.connection_string.label(class="form-control-label") }}
-        {{ form.connection_string(class="form-control form-control-lg") }}
-
-      </fieldset>
-      <div class="form-check">
-        {{ form.submit(class="btn btn-outline-info") }}
-      </div>
-      </form>
+      <p>
+      Thanks for coming!
+      </p>
+      <p>
+      This is the landing page for some of our Compunet Scripting Tools. <b>We are not web developers, please excuse the ugliness.</b>
+      </p>
+      <p>
+        For now, this page is used mainly for Azure ARM Templates and the PA Bootstrap Maker.
+      </p>
+      <p>
+        Many other tools already exist, however most require local access to the network in order to make changes.
+      </p>
+      <p>
+        Please check <a href="https://github.com/compunet-biz">github.com/compunet-biz</a>, <a href="https://github.com/glspi">Ryan's github</a>, and ask your local SE about other tools that may be of use.
+      </p>
     </div>
 
 {% endblock content %}
