@@ -30,14 +30,14 @@
             "metadata": {
                 "description": "Virtual Network CIDR to use"
             },
-            "defaultValue":"10.2.0.0/16"
+            "defaultValue":"10.77.0.0/16"
         },
         "managementAddressPrefix": {
             "type": "string",
             "metadata": {
                 "description": "Management Address Prefix"
             },
-            "defaultValue":"10.2.9.0/24"
+            "defaultValue":"10.77.255.0/24"
         },
         "managementSubnetName": {
             "type": "string",
@@ -65,7 +65,7 @@
             "metadata": {
                 "description": "Public Address Prefix"
             },
-            "defaultValue":"10.2.1.0/24"
+            "defaultValue":"10.77.0.0/24"
         },
         "publicSubnetName": {
             "type": "string",
@@ -93,7 +93,7 @@
             "metadata": {
                 "description": "Private Address Prefix"
             },
-            "defaultValue":"10.2.248.0/24"
+            "defaultValue":"10.77.254.0/24"
         },
         "privateSubnetName": {
             "type": "string",
@@ -232,21 +232,21 @@
             "metadata": {
                 "description": "Management Static IP Address for PA 1"
             },
-            "defaultValue":"10.2.9.10"
+            "defaultValue":"10.77.255.10"
         },
         "palo1PublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Public Subnet (private IP) Static IP Address for PA 1"
             },
-            "defaultValue":"10.2.1.4"
+            "defaultValue":"10.77.0.4"
         },
         "palo1PrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Private Static IP Address for PA 1"
             },
-            "defaultValue":"10.2.248.4"
+            "defaultValue":"10.77.254.4"
         },
         "palo1ManagementPublicIPName": {
             "type": "string",
@@ -267,21 +267,21 @@
             "metadata": {
                 "description": "Management Static IP Address for PA 2"
             },
-            "defaultValue":"10.2.9.11"
+            "defaultValue":"10.77.255.11"
         },
         "palo2PublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Public Subnet (private IP) Static IP Address for PA 2"
             },
-            "defaultValue":"10.2.1.5"
+            "defaultValue":"10.77.0.5"
         },
         "palo2PrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Private Static IP Address for PA 2"
             },
-            "defaultValue":"10.2.248.5"
+            "defaultValue":"10.77.254.5"
         },
         "palo2ManagementPublicIPName": {
             "type": "string",
@@ -320,7 +320,7 @@
         "storageAccountFileShareDirectory": {
             "type": "string",
             "metadata": {
-                "description": "The subdirectory hosting the bootstrap files. Only required if hosting multiple bootstrap directories on the same share"
+                "description": "The directory hosting the bootstrap files."
             }
         },
         "allowManagementFromCIDR": {
@@ -340,28 +340,28 @@
             "type": "string",
             "defaultValue": "External-LB-Public-IP-sample",
             "metadata": {
-                "description": "Public IP for Web new front-end"
+                "description": "Public IP for sample external load balancer front-end"
             }
         },
         "externalLBFrontEndName": {
             "type": "string",
             "defaultValue": "External-LB-Frontend-sample",
             "metadata": {
-                "description": "Load Balancer Front-End Name for Web"
+                "description": "Load Balancer Front-End Name"
             }
         },
         "externalLBBackEndName": {
             "type": "string",
             "defaultValue": "Backend-PAs-Public",
             "metadata": {
-                "description": "Name for the back-end connection to the PA public IP's"
+                "description": "Name for the ELB's back-end connection to the PA public IP's"
             }
         },
         "externalhttpsProbeName": {
             "type": "string",
             "defaultValue": "PA-HTTPS-Probe",
             "metadata": {
-                "description": "Name for https probe / health check"
+                "description": "Name for external https probe / health check"
             }
         },
         "externalLBRuleName-443": {
@@ -382,12 +382,12 @@
             "type": "string",
             "defaultValue": "Internal-LB",
             "metadata": {
-                "description": "Internal Load Balancer IP Address"
+                "description": "Internal Load Balancer IP Name"
             }
         },
         "internalLBIPAddress": {
             "type": "string",
-            "defaultValue": "10.2.248.11",
+            "defaultValue": "10.77.254.254",
             "metadata": {
                 "description": "Internal Load Balancer IP Address"
             }
@@ -403,14 +403,14 @@
             "type": "string",
             "defaultValue": "Backend-PAs-Private",
             "metadata": {
-                "description": "Name for the back-end connection to the PA private IP's"
+                "description": "Name for the ILB's back-end connection to the PA private IP's"
             }
         },
         "internalhttpsProbeName": {
             "type": "string",
             "defaultValue": "PA-HTTPS-Probe",
             "metadata": {
-                "description": "Name for https probe / health check"
+                "description": "Name for internal https probe / health check"
             }
         },
         "internalLBRuleName": {
