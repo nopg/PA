@@ -192,7 +192,6 @@
         },
         "storageAccountAccessKey": {
             "type": "string",
-            "defaultValue": "+0J9pTzXSoiDLYmlzCt5BIysfbKqbUwjMjV8WTdO1cTJWhoUOZgPSBluLjXoEFsXLWfHx4B6n85AuNn29c1cFQ==",
             "metadata": {
                 "description": "Authentication key to access the storage account"
             }
@@ -205,14 +204,14 @@
             }
         },
         "storageAccountFileShareDirectory1": {
-            "defaultValue": "poclb/fw1",
+            "defaultValue": "poclb-old/fw1",
             "type": "string",
             "metadata": {
                 "description": "The subdirectory hosting the bootstrap files. Only required if hosting multiple bootstrap directories on the same share"
             }
         },
         "storageAccountFileShareDirectory2": {
-            "defaultValue": "poclb/fw2",
+            "defaultValue": "poclb-old/fw2",
             "type": "string",
             "metadata": {
                 "description": "The subdirectory hosting the bootstrap files. Only required if hosting multiple bootstrap directories on the same share"

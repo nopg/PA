@@ -355,7 +355,7 @@
                       <unicast/>
                     </route-table>
                   </entry>
-                  <entry name="Net-10.0.0.0_8">
+                  <entry name="Management_Subnet">
                     <path-monitor>
                       <enable>no</enable>
                       <failure-condition>any</failure-condition>
@@ -368,7 +368,43 @@
                       <profile>None</profile>
                     </bfd>
                     <metric>10</metric>
-                    <destination>10.0.0.0/8</destination>
+                    <destination>{{ management_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Public_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <next-vr>VR-Private</next-vr>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <metric>10</metric>
+                    <destination>{{ public_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Private_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <next-vr>VR-Private</next-vr>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <metric>10</metric>
+                    <destination>{{ private_subnet }}</destination>
                     <route-table>
                       <unicast/>
                     </route-table>
@@ -445,21 +481,59 @@
                       <unicast/>
                     </route-table>
                   </entry>
-                  <entry name="Net-10.0.0.0_8">
+                  <entry name="Management_Subnet">
                     <path-monitor>
                       <enable>no</enable>
                       <failure-condition>any</failure-condition>
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>{{private_nexthop2}}</ip-address>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
                     <interface>ethernet1/2</interface>
                     <metric>10</metric>
-                    <destination>10.0.0.0/8</destination>
+                    <destination>{{ management_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Public_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <interface>ethernet1/2</interface>
+                    <metric>10</metric>
+                    <destination>{{ public_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Private_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <interface>ethernet1/2</interface>
+                    <metric>10</metric>
+                    <destination>{{ private_subnet }}</destination>
                     <route-table>
                       <unicast/>
                     </route-table>
@@ -545,14 +619,14 @@
           <application/>
           <application-group/>
           <zone>
-            <entry name="Private">
+            <entry name="trust">
               <network>
                 <layer3>
                   <member>ethernet1/2</member>
                 </layer3>
               </network>
             </entry>
-            <entry name="Public">
+            <entry name="untrust">
               <network>
                 <layer3>
                   <member>ethernet1/1</member>
@@ -582,10 +656,10 @@
               <rules>
                 <entry name="Inbound-Sample Server 1" uuid="0b14788c-be0d-43b8-95c3-2760c77d7f49">
                   <to>
-                    <member>Private</member>
+                    <member>trust</member>
                   </to>
                   <from>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>any</member>
@@ -613,10 +687,10 @@
                 </entry>
                 <entry name="Outbound-Internet" uuid="8acec3b2-7dd4-4e2a-a2b0-5af9a58432db">
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
+                    <member>trust</member>
                   </from>
                   <source>
                     <member>any</member>
@@ -646,12 +720,12 @@
                 </entry>
                 <entry name="Allow Health Checks" uuid="673b0607-082d-4588-9bc7-9310e2bcfd26">
                   <to>
-                    <member>Private</member>
-                    <member>Public</member>
+                    <member>trust</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
-                    <member>Public</member>
+                    <member>trust</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>Azure Health Check IP</member>
@@ -678,6 +752,40 @@
                   <action>allow</action>
                   <log-start>yes</log-start>
                 </entry>
+                <entry name="Allow Ping" uuid="a28074eb-9a20-427a-9d53-591e8bb25f5b">
+                  <to>
+                    <member>trust</member>
+                    <member>untrust</member>
+                  </to>
+                  <from>
+                    <member>trust</member>
+                    <member>untrust</member>
+                  </from>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <source-user>
+                    <member>any</member>
+                  </source-user>
+                  <category>
+                    <member>any</member>
+                  </category>
+                  <application>
+                    <member>icmp</member>
+                    <member>ping</member>
+                  </application>
+                  <service>
+                    <member>service-https</member>
+                  </service>
+                  <hip-profiles>
+                    <member>any</member>
+                  </hip-profiles>
+                  <action>allow</action>
+                  <log-start>yes</log-start>
+                </entry>
               </rules>
             </security>
             <nat>
@@ -694,10 +802,10 @@
                     <translated-address>Sample Server 1 Private IP</translated-address>
                   </destination-translation>
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>any</member>
@@ -716,10 +824,10 @@
                     </dynamic-ip-and-port>
                   </source-translation>
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
+                    <member>trust</member>
                   </from>
                   <source>
                     <member>any</member>
@@ -751,10 +859,10 @@
               <ip-netmask>{{public_ip2}}</ip-netmask>
             </entry>
             <entry name="Sample Server 1 Private IP">
-              <ip-netmask>10.77.1.4/32</ip-netmask>
+              <ip-netmask>10.77.254.6/32</ip-netmask>
             </entry>
             <entry name="Sample Server 1 Public IP">
-              <ip-netmask>40.64.64.68</ip-netmask>
+              <ip-netmask>99.99.99.99/32</ip-netmask>
             </entry>
           </address>
         </entry>

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<config version="8.1.0" urldb="paloaltonetworks">
+<config version="9.1.0" urldb="paloaltonetworks">
   <mgt-config>
     <users>
       <entry name="admin">
@@ -10,8 +10,8 @@
           </role-based>
         </permissions>
       </entry>
-      <entry name="sysadmin">
-        <phash>$1$kjdlbgkk$1wNZ1wFWZdr4Joz8kk5JY/</phash>
+      <entry name="cnetadmin">
+        <phash>$1$gsgdjrkd$VGO00NMoEqyJKl8ClPO4t1</phash>
         <permissions>
           <role-based>
             <superuser>yes</superuser>
@@ -136,16 +136,12 @@
           </monitor-profile>
           <interface-management-profile>
             <entry name="MP-Public">
-              <permitted-ip>
-                <entry name="168.63.129.16/32"/>
-              </permitted-ip>
               <https>yes</https>
+              <ping>yes</ping>
             </entry>
             <entry name="MP-Private">
-              <permitted-ip>
-                <entry name="168.63.129.16/32"/>
-              </permitted-ip>
               <https>yes</https>
+              <ping>yes</ping>
             </entry>
           </interface-management-profile>
         </profiles>
@@ -256,32 +252,36 @@
         <qos>
           <profile>
             <entry name="default">
-              <class>
-                <entry name="class1">
-                  <priority>real-time</priority>
-                </entry>
-                <entry name="class2">
-                  <priority>high</priority>
-                </entry>
-                <entry name="class3">
-                  <priority>high</priority>
-                </entry>
-                <entry name="class4">
-                  <priority>medium</priority>
-                </entry>
-                <entry name="class5">
-                  <priority>medium</priority>
-                </entry>
-                <entry name="class6">
-                  <priority>low</priority>
-                </entry>
-                <entry name="class7">
-                  <priority>low</priority>
-                </entry>
-                <entry name="class8">
-                  <priority>low</priority>
-                </entry>
-              </class>
+              <class-bandwidth-type>
+                <mbps>
+                  <class>
+                    <entry name="class1">
+                      <priority>real-time</priority>
+                    </entry>
+                    <entry name="class2">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class3">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class4">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class5">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class6">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class7">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class8">
+                      <priority>low</priority>
+                    </entry>
+                  </class>
+                </mbps>
+              </class-bandwidth-type>
             </entry>
           </profile>
         </qos>
@@ -324,7 +324,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>172.16.1.1</ip-address>
+                      <ip-address>{{public_nexthop1}}</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -343,7 +343,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>172.16.1.1</ip-address>
+                      <ip-address>{{public_nexthop1}}</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -355,7 +355,7 @@
                       <unicast/>
                     </route-table>
                   </entry>
-                  <entry name="Net-10.5.0.0">
+                  <entry name="Management_Subnet">
                     <path-monitor>
                       <enable>no</enable>
                       <failure-condition>any</failure-condition>
@@ -368,7 +368,43 @@
                       <profile>None</profile>
                     </bfd>
                     <metric>10</metric>
-                    <destination>10.5.0.0/16</destination>
+                    <destination>{{ management_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Public_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <next-vr>VR-Private</next-vr>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <metric>10</metric>
+                    <destination>{{ public_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Private_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <next-vr>VR-Private</next-vr>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <metric>10</metric>
+                    <destination>{{ private_subnet }}</destination>
                     <route-table>
                       <unicast/>
                     </route-table>
@@ -409,17 +445,17 @@
               <ip>
                 <static-route>
                   <entry name="default">
-                    <path-monitor>
-                      <enable>no</enable>
-                      <failure-condition>any</failure-condition>
-                      <hold-time>2</hold-time>
-                    </path-monitor>
                     <nexthop>
                       <next-vr>VR-Public</next-vr>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
                     <metric>10</metric>
                     <destination>0.0.0.0/0</destination>
                     <route-table>
@@ -433,7 +469,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>10.5.0.1</ip-address>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -445,21 +481,59 @@
                       <unicast/>
                     </route-table>
                   </entry>
-                  <entry name="Net-10.5.0.0">
+                  <entry name="Management_Subnet">
                     <path-monitor>
                       <enable>no</enable>
                       <failure-condition>any</failure-condition>
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>10.5.0.1</ip-address>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
                     </bfd>
                     <interface>ethernet1/2</interface>
                     <metric>10</metric>
-                    <destination>10.5.0.0/16</destination>
+                    <destination>{{ management_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Public_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <interface>ethernet1/2</interface>
+                    <metric>10</metric>
+                    <destination>{{ public_subnet }}</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                  <entry name="Private_Subnet">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <ip-address>{{ private_nexthop1 }}</ip-address>
+                    </nexthop>
+                    <bfd>
+                      <profile>None</profile>
+                    </bfd>
+                    <interface>ethernet1/2</interface>
+                    <metric>10</metric>
+                    <destination>{{ private_subnet }}</destination>
                     <route-table>
                       <unicast/>
                     </route-table>
@@ -497,7 +571,7 @@
             <disable-telnet>yes</disable-telnet>
             <disable-http>yes</disable-http>
           </service>
-          <hostname>PaloAltoVM2</hostname>
+          <hostname>{{hostname1}}</hostname>
           <dns-setting>
             <servers>
               <primary>168.63.129.16</primary>
@@ -525,8 +599,8 @@
           <management>
             <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
             <initcfg>
-              <hostname>PaloAltoVM2</hostname>
-              <username>sysadmin</username>
+              <hostname>{{hostname1}}</hostname>
+              <username>admin</username>
               <type>
                 <dhcp-client>
                   <send-hostname>yes</send-hostname>
@@ -545,14 +619,14 @@
           <application/>
           <application-group/>
           <zone>
-            <entry name="Private">
+            <entry name="trust">
               <network>
                 <layer3>
                   <member>ethernet1/2</member>
                 </layer3>
               </network>
             </entry>
-            <entry name="Public">
+            <entry name="untrust">
               <network>
                 <layer3>
                   <member>ethernet1/1</member>
@@ -566,27 +640,32 @@
           <rulebase>
             <default-security-rules>
               <rules>
-                <entry name="intrazone-default">
+                <entry name="intrazone-default" uuid="83cd1a53-6663-41c9-8d03-4096d8c50f33">
                   <action>deny</action>
                   <log-start>no</log-start>
-                  <log-end>no</log-end>
+                  <log-end>yes</log-end>
+                </entry>
+                <entry name="interzone-default" uuid="8df7a2ad-d2a8-4775-bf4a-1e5998598d04">
+                  <action>deny</action>
+                  <log-start>no</log-start>
+                  <log-end>yes</log-end>
                 </entry>
               </rules>
             </default-security-rules>
             <security>
               <rules>
-                <entry name="Inbound-Web Server 1">
+                <entry name="Inbound-Sample Server 1" uuid="0b14788c-be0d-43b8-95c3-2760c77d7f49">
                   <to>
-                    <member>Private</member>
+                    <member>trust</member>
                   </to>
                   <from>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>any</member>
                   </source>
                   <destination>
-                    <member>Web Server 1 Public IP</member>
+                    <member>Sample Server 1 Public IP</member>
                   </destination>
                   <source-user>
                     <member>any</member>
@@ -595,6 +674,7 @@
                     <member>any</member>
                   </category>
                   <application>
+                    <member>ssh</member>
                     <member>web-browsing</member>
                   </application>
                   <service>
@@ -605,17 +685,15 @@
                   </hip-profiles>
                   <action>allow</action>
                 </entry>
-                <entry name="Outbound-Internet">
+                <entry name="Outbound-Internet" uuid="8acec3b2-7dd4-4e2a-a2b0-5af9a58432db">
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
+                    <member>trust</member>
                   </from>
                   <source>
-                    <member>Business Subnet</member>
-                    <member>DB Subnet</member>
-                    <member>Web Subnet</member>
+                    <member>any</member>
                   </source>
                   <destination>
                     <member>any</member>
@@ -628,6 +706,7 @@
                   </category>
                   <application>
                     <member>apt-get</member>
+                    <member>ping</member>
                     <member>ssl</member>
                     <member>web-browsing</member>
                   </application>
@@ -639,21 +718,21 @@
                   </hip-profiles>
                   <action>allow</action>
                 </entry>
-                <entry name="Allow Health Checks">
+                <entry name="Allow Health Checks" uuid="673b0607-082d-4588-9bc7-9310e2bcfd26">
                   <to>
-                    <member>Private</member>
-                    <member>Public</member>
+                    <member>trust</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
-                    <member>Public</member>
+                    <member>trust</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>Azure Health Check IP</member>
                   </source>
                   <destination>
-                    <member>Private Interface</member>
-                    <member>Public Interface</member>
+                    <member>Private Interface IP</member>
+                    <member>Public Interface IP</member>
                   </destination>
                   <source-user>
                     <member>any</member>
@@ -673,11 +752,45 @@
                   <action>allow</action>
                   <log-start>yes</log-start>
                 </entry>
+                <entry name="Allow Ping" uuid="a28074eb-9a20-427a-9d53-591e8bb25f5b">
+                  <to>
+                    <member>trust</member>
+                    <member>untrust</member>
+                  </to>
+                  <from>
+                    <member>trust</member>
+                    <member>untrust</member>
+                  </from>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                  <source-user>
+                    <member>any</member>
+                  </source-user>
+                  <category>
+                    <member>any</member>
+                  </category>
+                  <application>
+                    <member>icmp</member>
+                    <member>ping</member>
+                  </application>
+                  <service>
+                    <member>service-https</member>
+                  </service>
+                  <hip-profiles>
+                    <member>any</member>
+                  </hip-profiles>
+                  <action>allow</action>
+                  <log-start>yes</log-start>
+                </entry>
               </rules>
             </security>
             <nat>
               <rules>
-                <entry name="Inbound-Web Server 1">
+                <entry name="Inbound-Sample Server 1" uuid="7fe1ddbc-6433-4511-8e5d-b2a81b67b415">
                   <source-translation>
                     <dynamic-ip-and-port>
                       <interface-address>
@@ -686,23 +799,23 @@
                     </dynamic-ip-and-port>
                   </source-translation>
                   <destination-translation>
-                    <translated-address>Web Server 1 Private IP</translated-address>
+                    <translated-address>Sample Server 1 Private IP</translated-address>
                   </destination-translation>
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </from>
                   <source>
                     <member>any</member>
                   </source>
                   <destination>
-                    <member>Web Server 1 Public IP</member>
+                    <member>Sample Server 1 Public IP</member>
                   </destination>
                   <service>any</service>
                 </entry>
-                <entry name="Outbound-Internet">
+                <entry name="Outbound-Internet" uuid="ef856376-bd2a-4377-b5c6-bcf3a182d181">
                   <source-translation>
                     <dynamic-ip-and-port>
                       <interface-address>
@@ -711,15 +824,13 @@
                     </dynamic-ip-and-port>
                   </source-translation>
                   <to>
-                    <member>Public</member>
+                    <member>untrust</member>
                   </to>
                   <from>
-                    <member>Private</member>
+                    <member>trust</member>
                   </from>
                   <source>
-                    <member>Business Subnet</member>
-                    <member>DB Subnet</member>
-                    <member>Web Subnet</member>
+                    <member>any</member>
                   </source>
                   <destination>
                     <member>any</member>
@@ -741,26 +852,17 @@
             <entry name="Azure Health Check IP">
               <ip-netmask>168.63.129.16/32</ip-netmask>
             </entry>
-            <entry name="Private Interface">
-              <ip-netmask>10.5.0.7</ip-netmask>
+            <entry name="Private Interface IP">
+              <ip-netmask>{{private_ip1}}</ip-netmask>
             </entry>
-            <entry name="Public Interface">
-              <ip-netmask>172.16.1.7</ip-netmask>
+            <entry name="Public Interface IP">
+              <ip-netmask>{{public_ip1}}</ip-netmask>
             </entry>
-            <entry name="Business Subnet">
-              <ip-netmask>10.5.2.0/24</ip-netmask>
+            <entry name="Sample Server 1 Private IP">
+              <ip-netmask>10.77.254.6/32</ip-netmask>
             </entry>
-            <entry name="DB Subnet">
-              <ip-netmask>10.5.3.0/24</ip-netmask>
-            </entry>
-            <entry name="Web Server 1 Private IP">
-              <ip-netmask>10.5.1.4/32</ip-netmask>
-            </entry>
-            <entry name="Web Server 1 Public IP">
-              <ip-netmask>40.91.125.60</ip-netmask>
-            </entry>
-            <entry name="Web Subnet">
-              <ip-netmask>10.5.1.0/24</ip-netmask>
+            <entry name="Sample Server 1 Public IP">
+              <ip-netmask>99.99.99.99/32</ip-netmask>
             </entry>
           </address>
         </entry>

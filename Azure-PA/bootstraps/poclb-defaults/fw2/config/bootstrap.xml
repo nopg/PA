@@ -324,7 +324,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>puop2</ip-address>
+                      <ip-address>10.77.0.1</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -343,7 +343,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>puop2</ip-address>
+                      <ip-address>10.77.0.1</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -433,7 +433,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>prop2</ip-address>
+                      <ip-address>10.77.254.1</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -452,7 +452,7 @@
                       <hold-time>2</hold-time>
                     </path-monitor>
                     <nexthop>
-                      <ip-address>prop2</ip-address>
+                      <ip-address>10.77.254.1</ip-address>
                     </nexthop>
                     <bfd>
                       <profile>None</profile>
@@ -497,7 +497,7 @@
             <disable-telnet>yes</disable-telnet>
             <disable-http>yes</disable-http>
           </service>
-          <hostname>ab2</hostname>
+          <hostname>pavm2</hostname>
           <dns-setting>
             <servers>
               <primary>168.63.129.16</primary>
@@ -525,7 +525,7 @@
           <management>
             <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
             <initcfg>
-              <hostname>ab2</hostname>
+              <hostname>pavm2</hostname>
               <username>admin</username>
               <type>
                 <dhcp-client>
@@ -745,10 +745,10 @@
               <ip-netmask>168.63.129.16/32</ip-netmask>
             </entry>
             <entry name="Private Interface IP">
-              <ip-netmask>prip2</ip-netmask>
+              <ip-netmask>10.77.254.5</ip-netmask>
             </entry>
             <entry name="Public Interface IP">
-              <ip-netmask>puip2</ip-netmask>
+              <ip-netmask>10.77.0.5</ip-netmask>
             </entry>
             <entry name="Sample Server 1 Private IP">
               <ip-netmask>10.77.1.4/32</ip-netmask>
