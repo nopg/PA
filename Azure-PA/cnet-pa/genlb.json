@@ -220,6 +220,17 @@
             },
             "defaultValue": "byol"
         },
+        "imageOffer": {
+            "type": "string",
+            "allowedValues": [
+                "vmseries1",
+                "vmseries-flex"
+            ],
+            "metadata": {
+                "description": "Use vmseries1 for byol, vmseries-flex for bundles"
+            },
+            "defaultValue": "vmseries1"
+        },
         "palo1ManagementPrivateIPAddress": {
             "type": "string",
             "metadata": {
@@ -416,7 +427,6 @@
     },
     "variables": {
         "imagePublisher": "paloaltonetworks",
-        "imageOffer": "vmseries1",
         "customDataField1": "[concat('storage-account=', parameters('bootstrapStorageAccount'), ',access-key=', parameters('storageAccountAccessKey'), ',file-share=', parameters('storageAccountFileShare'),',share-directory=', parameters('storageAccountFileShareDirectory'),'/fw1')]",
         "customDataField2": "[concat('storage-account=', parameters('bootstrapStorageAccount'), ',access-key=', parameters('storageAccountAccessKey'), ',file-share=', parameters('storageAccountFileShare'),',share-directory=', parameters('storageAccountFileShareDirectory'),'/fw2')]"
     },
@@ -920,7 +930,7 @@
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
-                "product": "[variables('imageOffer')]",
+                "product": "[parameters('imageOffer')]",
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
@@ -939,7 +949,7 @@
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
-                        "offer": "[variables('imageOffer')]",
+                        "offer": "[parameters('imageOffer')]",
                         "sku": "[parameters('imageSku')]",
                         "version": "[parameters('imageVersion')]"
                     },
@@ -984,7 +994,7 @@
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
-                "product": "[variables('imageOffer')]",
+                "product": "[parameters('imageOffer')]",
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
@@ -1003,7 +1013,7 @@
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
-                        "offer": "[variables('imageOffer')]",
+                        "offer": "[parameters('imageOffer')]",
                         "sku": "[parameters('imageSku')]",
                         "version": "[parameters('imageVersion')]"
                     },
