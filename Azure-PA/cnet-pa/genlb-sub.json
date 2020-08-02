@@ -120,7 +120,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm1"
         },
         "palo1NIC0": {
             "type": "string",
@@ -147,7 +148,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm2"
         },
         "palo2NIC0": {
             "type": "string",
@@ -174,7 +176,8 @@
             "type": "string",
             "metadata": {
                 "description": "Username of the administrator account on the PA"
-            }
+            },
+            "defaultValue": "sysadmin"
         },
         "adminPassword": {
             "type": "securestring",
@@ -1538,7 +1541,7 @@
             "name": "WebVM-eth0",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subscribervNetName'), 'Web')]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('subscribervNetName'))]"
             ],
             "properties": {
                 "ipConfigurations": [
@@ -1594,14 +1597,13 @@
                 }
             }
         },
-
         {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2018-10-01",
             "name": "DBVM-eth0",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subscribervNetName'), 'DB')]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('subscribervNetName'))]"
             ],
             "properties": {
                 "ipConfigurations": [
@@ -1615,6 +1617,26 @@
                         }
                     }
                 ]
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "WebVM/installapache",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[parameters('resourceLocation')]",
+            "dependsOn": [
+              "[resourceId('Microsoft.Compute/virtualMachines/', 'WebVM')]"
+            ],
+            "properties": {
+              "publisher": "Microsoft.Azure.Extensions",
+              "type": "CustomScript",
+              "typeHandlerVersion": "2.0",
+              "autoUpgradeMinorVersion": true,
+              "settings": {
+              },
+              "protectedsettings": {
+                "commandToExecute": "sudo apt-get install -y apache2"
+              }
             }
         },
         {
@@ -1671,10 +1693,9 @@
               "typeHandlerVersion": "2.0",
               "autoUpgradeMinorVersion": true,
               "settings": {
-                "fileUris": [
-                  "[uri('https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/apache2-on-ubuntu-vm/', 'install_apache.sh']"
-                ],
-                "commandToExecute": "sh install_apache.sh"
+              },
+              "protectedsettings": {
+                "commandToExecute": "sudo apt-get install -y apache2"
               }
             }
           }
