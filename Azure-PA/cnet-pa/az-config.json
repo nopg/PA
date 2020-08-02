@@ -1,8 +1,0 @@
-        {
-            "apiVersion": "2018-10-01",
-            "type": "Microsoft.Compute/virtualMachines",
-            "name": "[parameters('paloVM1Name')]",
-            "location": "[parameters('resourceLocation')]",
-            "zones": [
-                "1"
-            ],
