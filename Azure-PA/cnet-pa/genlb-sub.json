@@ -559,19 +559,6 @@
             "location": "[parameters('resourceLocation')]",
             "properties": {
                 "securityRules": [
-                    {
-                        "name": "AllowAll-Inbound",
-                        "properties": {
-                            "protocol": "*",
-                            "sourcePortRange": "*",
-                            "destinationPortRange": "*",
-                            "sourceAddressPrefix": "*",
-                            "destinationAddressPrefix": "*",
-                            "access": "Allow",
-                            "direction": "Inbound",
-                            "priority": 100
-                        }
-                    }
                 ]
             }
         },
@@ -1625,7 +1612,9 @@
             "apiVersion": "2015-05-01-preview",
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
-              "[resourceId('Microsoft.Compute/virtualMachines/', 'WebVM')]"
+              "[resourceId('Microsoft.Compute/virtualMachines/', 'WebVM')]",
+              "[resourceId('Microsoft.Compute/virtualMachines', parameters('palo1Hostname'))]",
+              "[resourceId('Microsoft.Compute/virtualMachines', parameters('palo2Hostname'))]"
             ],
             "properties": {
               "publisher": "Microsoft.Azure.Extensions",
@@ -1635,7 +1624,7 @@
               "settings": {
               },
               "protectedsettings": {
-                "commandToExecute": "sudo apt-get install -y apache2"
+                "commandToExecute": "sleep 720;sudo apt-get install -y apache2"
               }
             }
         },
