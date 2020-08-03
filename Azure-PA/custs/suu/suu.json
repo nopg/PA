@@ -23,14 +23,7 @@
             "metadata": {
                 "description": "Virtual Network Name"
             },
-            "defaultValue": "virtual-network-name"
-        },
-        "vNetCIDR": {
-            "type": "string",
-            "metadata": {
-                "description": "Virtual Network CIDR to use"
-            },
-            "defaultValue":"10.2.0.0/16"
+            "defaultValue": "transit-vnet-name"
         },
         "managementAddressPrefix": {
             "type": "string",
@@ -120,7 +113,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm1"
         },
         "palo1NIC0": {
             "type": "string",
@@ -147,7 +141,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm2"
         },
         "palo2NIC0": {
             "type": "string",
@@ -174,7 +169,8 @@
             "type": "string",
             "metadata": {
                 "description": "Username of the administrator account on the PA"
-            }
+            },
+            "defaultValue": "sysadmin"
         },
         "adminPassword": {
             "type": "securestring",
@@ -226,6 +222,17 @@
                 "description": "Firewall License Model"
             },
             "defaultValue": "byol"
+        },
+        "imageOffer": {
+            "type": "string",
+            "allowedValues": [
+                "vmseries1",
+                "vmseries-flex"
+            ],
+            "metadata": {
+                "description": "Use vmseries1 for byol, vmseries-flex for bundles"
+            },
+            "defaultValue": "vmseries1"
         },
         "palo1ManagementPrivateIPAddress": {
             "type": "string",
@@ -320,7 +327,7 @@
         "storageAccountFileShareDirectory": {
             "type": "string",
             "metadata": {
-                "description": "The subdirectory hosting the bootstrap files. Only required if hosting multiple bootstrap directories on the same share"
+                "description": "The directory hosting the bootstrap files."
             }
         },
         "allowManagementFromCIDR": {
@@ -340,28 +347,28 @@
             "type": "string",
             "defaultValue": "External-LB-Public-IP-sample",
             "metadata": {
-                "description": "Public IP for Web new front-end"
+                "description": "Public IP for sample external load balancer front-end"
             }
         },
         "externalLBFrontEndName": {
             "type": "string",
             "defaultValue": "External-LB-Frontend-sample",
             "metadata": {
-                "description": "Load Balancer Front-End Name for Web"
+                "description": "Load Balancer Front-End Name"
             }
         },
         "externalLBBackEndName": {
             "type": "string",
             "defaultValue": "Backend-PAs-Public",
             "metadata": {
-                "description": "Name for the back-end connection to the PA public IP's"
+                "description": "Name for the ELB's back-end connection to the PA public IP's"
             }
         },
         "externalhttpsProbeName": {
             "type": "string",
             "defaultValue": "PA-HTTPS-Probe",
             "metadata": {
-                "description": "Name for https probe / health check"
+                "description": "Name for external https probe / health check"
             }
         },
         "externalLBRuleName-443": {
@@ -382,7 +389,7 @@
             "type": "string",
             "defaultValue": "Internal-LB",
             "metadata": {
-                "description": "Internal Load Balancer IP Address"
+                "description": "Internal Load Balancer IP Name"
             }
         },
         "internalLBIPAddress": {
@@ -403,14 +410,14 @@
             "type": "string",
             "defaultValue": "Backend-PAs-Private",
             "metadata": {
-                "description": "Name for the back-end connection to the PA private IP's"
+                "description": "Name for the ILB's back-end connection to the PA private IP's"
             }
         },
         "internalhttpsProbeName": {
             "type": "string",
             "defaultValue": "PA-HTTPS-Probe",
             "metadata": {
-                "description": "Name for https probe / health check"
+                "description": "Name for internal https probe / health check"
             }
         },
         "internalLBRuleName": {
@@ -423,7 +430,6 @@
     },
     "variables": {
         "imagePublisher": "paloaltonetworks",
-        "imageOffer": "vmseries1",
         "customDataField1": "[concat('storage-account=', parameters('bootstrapStorageAccount'), ',access-key=', parameters('storageAccountAccessKey'), ',file-share=', parameters('storageAccountFileShare'),',share-directory=', parameters('storageAccountFileShareDirectory'),'/fw1')]",
         "customDataField2": "[concat('storage-account=', parameters('bootstrapStorageAccount'), ',access-key=', parameters('storageAccountAccessKey'), ',file-share=', parameters('storageAccountFileShare'),',share-directory=', parameters('storageAccountFileShareDirectory'),'/fw2')]"
     },
@@ -676,7 +682,9 @@
             "properties": {
                 "addressSpace": {
                     "addressPrefixes": [
-                        "[parameters('vNetCIDR')]"
+                        "[parameters('managementAddressPrefix')]",
+                        "[parameters('publicAddressPrefix')]",
+                        "[parameters('privateAddressPrefix')]"
                     ]
                 },
                 "subnets": [
@@ -925,7 +933,7 @@
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
-                "product": "[variables('imageOffer')]",
+                "product": "[parameters('imageOffer')]",
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
@@ -944,7 +952,7 @@
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
-                        "offer": "[variables('imageOffer')]",
+                        "offer": "[parameters('imageOffer')]",
                         "sku": "[parameters('imageSku')]",
                         "version": "[parameters('imageVersion')]"
                     },
@@ -989,7 +997,7 @@
             ],
             "plan": {
                 "name": "[parameters('imageSku')]",
-                "product": "[variables('imageOffer')]",
+                "product": "[parameters('imageOffer')]",
                 "publisher": "[variables('imagePublisher')]"
             },
             "properties": {
@@ -1008,7 +1016,7 @@
                 "storageProfile": {
                     "imageReference": {
                         "publisher": "[variables('imagePublisher')]",
-                        "offer": "[variables('imageOffer')]",
+                        "offer": "[parameters('imageOffer')]",
                         "sku": "[parameters('imageSku')]",
                         "version": "[parameters('imageVersion')]"
                     },

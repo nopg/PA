@@ -113,7 +113,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm1"
         },
         "palo1NIC0": {
             "type": "string",
@@ -140,7 +141,8 @@
             "type": "string",
             "metadata": {
                 "description": "Firewall Hostname"
-            }
+            },
+            "defaultValue": "pavm2"
         },
         "palo2NIC0": {
             "type": "string",
@@ -167,7 +169,8 @@
             "type": "string",
             "metadata": {
                 "description": "Username of the administrator account on the PA"
-            }
+            },
+            "defaultValue": "sysadmin"
         },
         "adminPassword": {
             "type": "securestring",
