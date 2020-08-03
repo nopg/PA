@@ -1678,26 +1678,6 @@
                     "adminPassword": "[parameters('adminPassword')]"
                 }
             }
-        },
-        {
-            "type": "Microsoft.Compute/virtualMachines/extensions",
-            "name": "WebVM/installapache",
-            "apiVersion": "2015-05-01-preview",
-            "location": "[parameters('resourceLocation')]",
-            "dependsOn": [
-              "[resourceId('Microsoft.Compute/virtualMachines/', 'WebVM')]"
-            ],
-            "properties": {
-              "publisher": "Microsoft.Azure.Extensions",
-              "type": "CustomScript",
-              "typeHandlerVersion": "2.0",
-              "autoUpgradeMinorVersion": true,
-              "settings": {
-              },
-              "protectedsettings": {
-                "commandToExecute": "sudo apt-get install -y apache2"
-              }
-            }
-          }
+        }
     ]
 }
