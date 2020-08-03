@@ -1625,7 +1625,7 @@
               "settings": {
               },
               "protectedsettings": {
-                "commandToExecute": "sleep 720;sudo apt-get install -y apache2"
+                "commandToExecute": "sleep 600;sudo apt-get install -y apache2"
               }
             }
         },
