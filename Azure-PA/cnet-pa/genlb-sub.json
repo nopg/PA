@@ -335,7 +335,8 @@
             "type": "string",
             "metadata": {
                 "description": "The directory hosting the bootstrap files."
-            }
+            },
+            "defaultValue": "poclb-defaults"
         },
         "allowManagementFromCIDR": {
             "type": "string",
