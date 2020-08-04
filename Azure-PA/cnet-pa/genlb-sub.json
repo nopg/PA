@@ -246,21 +246,21 @@
             "metadata": {
                 "description": "Management Static IP Address for PA 1"
             },
-            "defaultValue":"10.77.255.10"
+            "defaultValue":"10.77.255.5"
         },
         "palo1PublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Public Subnet (private IP) Static IP Address for PA 1"
             },
-            "defaultValue":"10.77.0.4"
+            "defaultValue":"10.77.0.5"
         },
         "palo1PrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Private Static IP Address for PA 1"
             },
-            "defaultValue":"10.77.254.4"
+            "defaultValue":"10.77.254.5"
         },
         "palo1ManagementPublicIPName": {
             "type": "string",
@@ -281,21 +281,21 @@
             "metadata": {
                 "description": "Management Static IP Address for PA 2"
             },
-            "defaultValue":"10.77.255.11"
+            "defaultValue":"10.77.255.6"
         },
         "palo2PublicPrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Public Subnet (private IP) Static IP Address for PA 2"
             },
-            "defaultValue":"10.77.0.5"
+            "defaultValue":"10.77.0.6"
         },
         "palo2PrivateIPAddress": {
             "type": "string",
             "metadata": {
                 "description": "Private Static IP Address for PA 2"
             },
-            "defaultValue":"10.77.254.5"
+            "defaultValue":"10.77.254.6"
         },
         "palo2ManagementPublicIPName": {
             "type": "string",
