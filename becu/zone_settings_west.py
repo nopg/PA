@@ -5,15 +5,10 @@
 
 PUSH_CONFIG_TO_PA = True
 
-NEW_PRIVATE_INTRAZONE = "TRUST_L3"
+NEW_PRIVATE_INTRAZONE = "TRUST_L3" # the new trusted/private zone name to be used for all intra-zone traffic.
 EXISTING_EAST_OBJECTS = {
-    "Azure East Commerce Network":"Azure West Commerce Network", 
-    "Azure East ASE network":"Commerce Prod ASE",
-    "Azrue East Management Network":"Azure West Mgmt Network",
-    "Azure East Partner Network":"Azure West Partner Network",
-    "Azure East Secure Network":"Azure West Secure Network",
-    "Azure East Community Network":"Azure West_Community_Network"
+    "Existing East Object Name1":"New West Object Name1", 
+    "Existing East Object Name2":"New West Object Name2"
 }
-WEST_COMMERCE_EXTRA = "Commerce Prod ASE"
 
 ####### EDIT ABOVE ############################################################################

@@ -3,13 +3,15 @@ Description:
     Cloud/Intrazone PA Security Rules Migration
 
     This script can be used to migrate existing PA Security Rules to an 'intrazone' design.
-    This rule design may become a typical 'cloud style' design. Let's hope zone-based can make a comeback.
+    This rule design might become a typical 'cloud style' design. Let's hope zone-based can make a comeback.
     
     You can stay offline and load XML files and spit out the modified results, or
     You can connect to a PA or Panorama and pull the rules from there.
-    Once the rules have been modified a file will be created in the existing directory, with the new rules.
-    If PUSH_CONFIG_TO_PA global variable is True, it will then prompt for upload/configuration preferences.
-    See 'Cautions' below for more usage info.
+    Once the rules have been modified a file will be created in the 'output' folder in the
+        existing directory, with the new rules. The existing rules will be in 'output/api/<Date/TIME>/<api-call>.json'.
+
+    If PUSH_CONFIG_TO_PA global variable is True, it will then prompt for upload/config details.
+    See 'Usage' below for more information.
 
 Requires:
     requests
@@ -20,24 +22,21 @@ Author:
     Ryan Gillespie rgillespie@compunet.biz
     Docstring stolen from Devin Callaway
 
-Tested:
-    Tested on macos 10.13.6
-    Python: 3.6.2
-    PA VM100, Panorama
+Tested on:
+    MacOS 10.13.6, Windows 10
+    Python: 3.6.2+
+    PA VM100, VM 300, 5200, Panorama, 9.0+
 
 Example usage:
-        $ python becu.py <PA(N) mgmt IP> <username>
+        $ python becu.py -i <PA(N) management IP> -u <username>
         Password: 
 
-Cautions:
-    This script uses 2 global dictionaries found in zone_settings.py (global for easy end-user modification)
-     - EXISTING_PRIVATE_ZONES
-        type 'dictionary'
-        The key is any (typically trusted) zone name that should be updated, due to intra-zone conversion.
-        The value is the name of the address or address-group that is associated with the above zone.
-        The address/group object should already exist in the PA configuration.
-     - NEW_PRIVATE_INTRAZONE
-        type 'string', the new trusted/private zone name to be used for all intra-zone traffic.
+Usage:
+    This script uses 3 global variables found in zone_settings.py (global for easy end-user modification)
+    The End User should modify the values of these variables and save the file, each time the script is run.
+    These settings determine what zones/objects are modified in the existing ruleset.
+
+    See zone_settings.py for details on each variable
 
 Legal:
     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
@@ -67,6 +66,9 @@ import zone_settings as settings
 def grab_xml_or_json_file(filename):
     """
     Read PA file, return dict based on xml or json
+
+    :param filename: xml or json file to open
+    :return: dictionary version of the file with everything above <rules> removed. -JSON MAY BE DIFFERENT KEYS-
     """
     output = None
 
@@ -98,6 +100,14 @@ def error_check(response, operation):
 
 
 def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
+    """
+    Create output files, upload to PA/Panorama, print to screen.
+    This function utilizes settings.PUSH_CONFIG_TO_PA
+
+    :param modified_rules: modified rules to be created/uploaded to file/PA.
+    :param filename: xml filename to use
+    :return: dictionary version of the file 
+    """
 
     # Always create an output file with the modified-rules.
     if not filename:
@@ -161,9 +171,9 @@ def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
 
 def modify_rules(security_rules):
     """
-    MODIFY SECURITY RULES
-    This accepts a dictionary of rules and modifies them to a cloud-based intra-zone ruleset.
-    This script utilizes EXISTING_PRIVATE_ZONES, and NEW_PRIVATE_INTRAZONE
+    Modify Security Rules
+    This accepts a dictionary of existing rules and modifies them to a cloud-based intra-zone ruleset.
+    This function utilizes settings.EXISTING_PRIVATE_ZONES, and settings.NEW_PRIVATE_INTRAZONE
 
     :param security_rules: existing security rules
     :return: modified_rules, new/modified security rule-set
@@ -178,6 +188,7 @@ def modify_rules(security_rules):
         :param tofrom: the xml Address-Object tag needed for insertion into the new rule
         :param x_zone: from or to, zone name
         :param x_addr: source or destination, address/group object
+        :return: none, This function modifies the local variable newrule
         """
 
         try:
@@ -220,6 +231,7 @@ def modify_rules(security_rules):
     
         return None # This function modifies the local variable newrule
 
+    # modify_rules(security_rules)
     modified_rules = []
     if not isinstance(security_rules, list):
         security_rules = [security_rules]
@@ -242,9 +254,16 @@ def modify_rules(security_rules):
 
 
 def get_device_group(pa):
+    """
+    Grab Panorama Device Groups and desired DG name from the End User
+
+    :param pa: pa_api object/session
+    :return: device_group name input from End User
+    """
 
     incorrect_input = True
     while incorrect_input:
+        # Grab the Device Groups and Template Names, we don't need Template names.
         device_groups, _ = pa.grab_panorama_objects()
         print("--------------\n")
         print("Device Groups:")
@@ -260,39 +279,45 @@ def get_device_group(pa):
     
     return device_group
 
+
 def becu(pa_ip, username, password, pa_type, filename=None):
     """
     Main point of entry.
     Connect to PA/Panorama.
     Grab security rules from pa/pan.
     Modify them for intra-zone migration.
+    Output and/or push changes to the PA/PAN.
+    
+    :param pa_ip: PA/Panorama Management IP Address
+    :param username: Username
+    :param password: Password
+    :pa_type: PA or Panorama, or XML (offline)
+    :filename: Filename to read security rules from (offline mode only)
+    :return: None, end of script.
     """
     
+    # Grab 'start' time    
+    start = time.perf_counter()
+
     if pa_type != "xml":
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
     to_output = []
 
     if pa_type == "xml":
-        # Grab 'start' time
-        start = time.perf_counter()
         # Grab XML file, modify rules, and create output file.
         security_rules = grab_xml_or_json_file(filename)
         modified_rules = modify_rules(security_rules["result"]["rules"]["entry"])
         output_and_push_changes(modified_rules, "output/modified-xml-rules.xml")
 
     elif pa_type == "panorama":
-
-        # Grab the Device Groups and Template Names, we don't need Template names.
+        # Grab the Device Groups 
         pa.device_group = get_device_group(pa)
-
-        # Grab 'start' time
-        start = time.perf_counter()
     
         # Set the XPath now that we have the Device Group
         XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
         XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
 
-        # Grab Rules
+        # Grab Panorama Rules
         pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
@@ -305,9 +330,7 @@ def becu(pa_ip, username, password, pa_type, filename=None):
             to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
-        # Grab 'start' time
-        start = time.perf_counter()
-        # Grab Rules
+        # Grab PA Rules
         XPATH = pa_api.XPATH_SECURITYRULES
         security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
         if security_rules["result"]:
@@ -323,8 +346,10 @@ def becu(pa_ip, username, password, pa_type, filename=None):
     runtime = end - start
     print(f"Took {runtime} Seconds.\n")
 
+    return None
 
-# If run from the command line
+
+# If run from the command line (the way it's built)
 if __name__ == "__main__":
 
     # Check arguments, if 'xml' then don't need the rest of the input

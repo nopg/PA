@@ -1,15 +1,11 @@
 """
 Description: 
-    Cloud/Intrazone PA Security Rules Migration
-
-    This script can be used to migrate existing PA Security Rules to an 'intrazone' design.
-    This rule design may become a typical 'cloud style' design. Let's hope zone-based can make a comeback.
-    
-    You can stay offline and load XML files and spit out the modified results, or
-    You can connect to a PA or Panorama and pull the rules from there.
-    Once the rules have been modified a file will be created in the existing directory, with the new rules.
-    If PUSH_CONFIG_TO_PA global variable is True, it will then prompt for upload/configuration preferences.
-    See 'Cautions' below for more usage info.
+    Extra Script to find East address objects/groups, and add the corresponding West address objects/groups
+        to the rule.
+    This was basically a duplicate of the becu.py script with the 'modify' functions modified for this purpose. 
+    This will be restructured in some way to be integrated with other scripts in the future.
+    Built this way due to time restraints and one specific use-case. Most comments are leftover from the
+        original script, and were not updated here.
 
 Requires:
     requests
@@ -30,14 +26,6 @@ Example usage:
         Password: 
 
 Cautions:
-    This script uses 2 global dictionaries found in zone_settings.py (global for easy end-user modification)
-     - EXISTING_PRIVATE_ZONES
-        type 'dictionary'
-        The key is any (typically trusted) zone name that should be updated, due to intra-zone conversion.
-        The value is the name of the address or address-group that is associated with the above zone.
-        The address/group object should already exist in the PA configuration.
-     - NEW_PRIVATE_INTRAZONE
-        type 'string', the new trusted/private zone name to be used for all intra-zone traffic.
 
 Legal:
     THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
@@ -194,9 +182,6 @@ def modify_rules(security_rules):
                     new_addr_obj = settings.EXISTING_EAST_OBJECTS[addr_obj]
                     if new_addr_obj not in newrule[srcdst]["member"]:
                         newrule[srcdst]["member"].append(new_addr_obj)
-                    if addr_obj == "Azure East Commerce Network":
-                        if settings.WEST_COMMERCE_EXTRA not in newrule[srcdst]["member"]:
-                            newrule[srcdst]["member"].append(settings.WEST_COMMERCE_EXTRA)
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
