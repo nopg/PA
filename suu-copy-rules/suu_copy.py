@@ -188,7 +188,7 @@ def copy_rules(security_rules):
                 if zone_to_check == zone:   # Found relevant rule
                     tocopy = True
                 else:
-                    newrule[tofrom]["member"].remove(zone)
+                    pass
 
         except TypeError:
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
