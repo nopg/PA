@@ -76,6 +76,7 @@ XPATH_NAT_RULES_POST_PAN = "/config/devices/entry[@name='localhost.localdomain']
 XPATH_CUSTOM_URL_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/custom-url-category"
 XPATH_VIRUS_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/virus"
 XPATH_FILE_BLOCKING_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/file-blocking"
+XPATH_DECRYPTION_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/decryption"
 XPATH_URL_FILTERING_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/url-filtering"
 XPATH_SPYWARE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/spyware"
 XPATH_VULNERABILITY_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/vulnerability"
