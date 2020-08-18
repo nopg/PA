@@ -44,7 +44,6 @@ import json
 import xmltodict
 import xml.dom.minidom
 from datetime import datetime
-import copy #temp
 
 import requests
 
@@ -58,7 +57,6 @@ DEBUG = False
 
 #PA:
 XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address"
-XPATH_ADDRESS_GRP =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address-group"
 XPATH_INTERFACES =    "/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
 XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/nat/rules"
@@ -66,16 +64,30 @@ XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/ent
 #PAN:
 XPATH_DEVICE_GROUPS = "/config/devices/entry[@name='localhost.localdomain']/device-group"
 XPATH_TEMPLATE_NAMES = "/config/devices/entry[@name='localhost.localdomain']/template"
-XPATH_ADDRESS_OBJ_SHARED = "/config/shared/address"
 XPATH_ADDRESS_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address"
-XPATH_ADDRESS_GRP_SHARED = "/config/shared/address-group"
-XPATH_ADDRESS_GRP_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address-group"
+XPATH_ADDRESS_GROUP_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/address-group"
+XPATH_SERVICE_OBJ_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/service"
+XPATH_SERVICE_GROUP_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/service-group"
 XPATH_INTERFACES_PAN =    "/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='TEMPLATE_NAME']/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITY_RULES_PRE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/security/rules"
 XPATH_SECURITY_RULES_POST_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/security/rules"
 XPATH_NAT_RULES_PRE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/pre-rulebase/nat/rules"
 XPATH_NAT_RULES_POST_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/post-rulebase/nat/rules"
-
+XPATH_CUSTOM_URL_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/custom-url-category"
+XPATH_VIRUS_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/virus"
+XPATH_FILE_BLOCKING_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/file-blocking"
+XPATH_DECRYPTION_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/decryption"
+XPATH_URL_FILTERING_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/url-filtering"
+XPATH_SPYWARE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/spyware"
+XPATH_VULNERABILITY_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/vulnerability"
+XPATH_WILDFIRE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/wildfire-analysis"
+XPATH_PROFILE_GROUP_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profile-group"
+XPATH_TAGS_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/tag"
+XPATH_EDLS_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/external-list"
+XPATH_SCHEDULE_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/schedule"
+XPATH_APP_FILTER_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/application-filter"
+XPATH_DOS_PROTECTION_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/dos-protection"
+SHARED_REPLACE = "/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']"
 #########################################################################################################
 
 # Menu to grab PA/Panorama Type
@@ -187,15 +199,6 @@ def create_json_files(temp, filename):
 
     # print("\tCreated: {}\n".format(filename))
 
-def validate_output(output_type):
-    validated_output = copy.deepcopy(output_type)
-
-    if output_type:
-        if output_type.get("result"):
-            return validated_output["result"]
-    else:
-        return None
-
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
     # Upon creation:
@@ -240,30 +243,6 @@ class api_lib_pa:
         if not self.key:
             print(f"Login Failed: Response=\n{temp}")
             sys.exit(0)
-
-
-    def grab_address_objects(self, xml_or_rest, xpath_or_restcall, filename=None,):
-        address_objects = self.grab_api_output(
-            xml_or_rest, xpath_or_restcall, filename
-        )
-        addr_objects = validate_output(address_objects)
-        if addr_objects:
-            if addr_objects["address"]:
-                return addr_objects["address"]["entry"]
-            else:
-                return None
-
-
-    def grab_address_groups(self, xml_or_rest, xpath_or_restcall, filename=None,):
-        address_grp_objects = self.grab_api_output(
-            xml_or_rest, xpath_or_restcall, filename
-        )
-        addr_grp_objects = validate_output(address_grp_objects)
-        if addr_grp_objects:
-            if addr_grp_objects["address-group"]:
-                return addr_grp_objects["address-group"]["entry"]
-            else:
-                return None
 
 
     # Grab Panorama Device Groups & Templates
