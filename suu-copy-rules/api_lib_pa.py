@@ -208,6 +208,7 @@ class api_lib_pa:
         self.password = password
         self.pa_type = pa_type
         self.device_group = None
+        self.dst_device_group = None
         self.template_name = None
         self.session = {}
         self.key = 0
