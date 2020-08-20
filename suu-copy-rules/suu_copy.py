@@ -168,7 +168,7 @@ def get_device_groups(pa):
     return src_device_group, dst_device_group
 
 
-def copy_rules(security_rules):
+def copy_rules(security_rules, zone_to_check):
     """
     COPY/CLONE SECURITY RULES
     This accepts a dictionary of rules and copies them to a new Device Group if ZONENAME matches
@@ -216,8 +216,6 @@ def copy_rules(security_rules):
     if not isinstance(security_rules, list):
         security_rules = [security_rules]
 
-    zone_to_check = input("\nEnter the Zone name to be migrated: ")
-
     print("\nEvaluating...\n")
     for oldrule in security_rules:
         newrule = copy.deepcopy(oldrule)
@@ -261,6 +259,7 @@ def suu_copy(pa_ip, username, password, pa_type, filename=None):
 
         # Grab the Device Groups and Template Names, we don't need Template names.
         pa.device_group, pa.dst_device_group = get_device_groups(pa)
+        zone_to_check = input("\nEnter the Zone name to be migrated: ")
     
         # Set the XPath now that we have the Device Group
         XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
@@ -271,14 +270,15 @@ def suu_copy(pa_ip, username, password, pa_type, filename=None):
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
         # Clone the rules, Pre & Post, then append to output list
-        if pre_security_rules["result"]["rules"]:
+
+        if pre_security_rules["result"]:
             if "entry" in pre_security_rules["result"]["rules"]:
-                new_rules_pre = copy_rules(pre_security_rules["result"]["rules"]["entry"])
+                new_rules_pre = copy_rules(pre_security_rules["result"]["rules"]["entry"], zone_to_check)
                 to_output.append([new_rules_pre,"output/new-pre-rules.xml", XPATH_PRE, pa])
 
         if post_security_rules["result"]:
             if "entry" in post_security_rules["result"]["rules"]:
-                new_rules_post = copy_rules(post_security_rules["result"]["rules"]["entry"])
+                new_rules_post = copy_rules(post_security_rules["result"]["rules"]["entry"], zone_to_check)
                 to_output.append([new_rules_post,"output/new-post-rules.xml", XPATH_POST, pa])
             
     else:
