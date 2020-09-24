@@ -383,7 +383,7 @@ def eastwest_addnew_zone(security_rules, panfw):
     #     security_rules = [security_rules]
     print("\nModifying...\n")
 
-    for oldrule in security_rules:
+    for k, oldrule in enumerate(security_rules):
 
         # Check if rule should be cloned
         # new_rule = should_be_cloned(oldrule)
@@ -392,10 +392,29 @@ def eastwest_addnew_zone(security_rules, panfw):
         #     eastwest_add(oldrule)
         # else:
         #     eastwest_add(oldrule)
+        
         new_rule = sdk_test(oldrule, panfw)
+        print(f"index: {k}, old_rule: {oldrule.name}")
+        print(type(oldrule))
+        print(type(new_rule))
+        #print(f"newindex: {panfw.find_index(name=oldrule.name, class_type=policies.SecurityRule)}")
+        
+        #if k == 3:
         panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
+        new_rule.move('before', ref=oldrule.name, update=False)
+        # else:
+        #     panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
+
 
     print("..Done.")
+
+    #found = panfw.find_index(class_type=policies.SecurityRule)
+    # found = "nope"
+    # for k, child in enumerate(panfw.findall(class_type=policies.Rulebase)[0]):
+    #     print(f"child={child}\ntype = {type(child)}")
+    #     if child.uid == "MacMini":
+    #         found = k
+    # print(f"newindex: {found}")
 
     panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
 
