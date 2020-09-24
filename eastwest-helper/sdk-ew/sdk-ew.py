@@ -89,23 +89,15 @@ def grab_xml_or_json_file(filename):
     return output
 
 
-def error_check(response, operation):
-    if response.status_code != 200 or "error" in response.text:
-        print(f"\n\n{operation} Failed.")
-        print(f"Response Code: {response.status_code}")
-        print(f"Response: {response.text}\n\n")
-        sys.exit(0)
-
-
 def address_group_lookup(entry):
 
     found = False
 
     for addr_group in mem.address_group_entries:
-        if entry in addr_group.get("@name"):
-            if "member" in addr_group.get("static"):
+        if entry == addr_group.name:
+            if addr_group.static_value:
                 found = True
-                member_objects = addr_group["static"]["member"]
+                member_objects = addr_group.static_value
             else:
                 print("Not supported, hi.")
     
@@ -129,11 +121,10 @@ def address_lookup(entry):
 
     found = False
     for addr_object in mem.address_object_entries:
-        #print(f"debug, addr-obj= {addr_object}")
-        if entry in addr_object.get("@name"):
-            if "ip-netmask" in addr_object:
+        if entry == addr_object.name:
+            if addr_object.type == "ip-netmask":
                 found = True
-                ips = addr_object["ip-netmask"]
+                ips = addr_object.value
             else:
                 found = True
                 ips = ['1.1.1.1']
@@ -149,73 +140,14 @@ def address_lookup(entry):
     return ips # Always returns a list (currently)
 
 
-def output_and_push_changes(modified_rules, filename=None, xpath=None, pa=None):
-
-    # Always create an output file with the modified-rules.
-    if not filename:
-        filename = "output/modified-pa-rules.xml"
-    # Prepare output
-    add_entry_tag = {"entry": modified_rules}   # Adds the <entry> tag to each rule
-    modified_rules_xml = {"config": {"security": {"rules": add_entry_tag} } } # Provides an xpath for importing
-    data = xmltodict.unparse(modified_rules_xml)    # Turn XML into a string
-    prettyxml = xml.dom.minidom.parseString(data).toprettyxml() # Pretty-fi the XML before creating file
-    prettyxml = prettyxml.replace('<?xml version="1.0" ?>', "") # Can't import with this in the XML, remove it
-    # Create output file
-    with open(filename, "w") as fout:
-        fout.write(prettyxml)
-        print(f"\nOutput at: {filename}\n")
-
-    if settings.PUSH_CONFIG_TO_PA:
-        # Ask for filename
-        print("\n\tUploading to PA/Panorama:")
-        print("\n\t(Include 'foldername/' if modifying)")
-        new_filename = input(f"\tFilename[{filename}]: ")
-        # Accept default, if entered, update and rename on filesystem
-        if new_filename:
-            os.rename(filename, new_filename)
-            filename = new_filename
-
-        # Import Named Configuration .xml via Palo Alto API
-        with open(filename) as fin:
-            print("\nUploading Configuration, Please Wait....")
-            response = pa.import_named_configuration(fin)
-        error_check(response, "Importing Configuration")
-        print("\nConfig Uploaded.")
-        
-        load_config = ""
-        while load_config.lower() not in ("y", "n"):
-            load_config = input("\nLoad config as candidate configuration? [y/n]: ")
-
-        if load_config == "y":
-            if pa.pa_type == "panorama":
-                same_dg = ""
-                while same_dg.lower() not in ("y", "n"):
-                    same_dg = input(f"Push to existing Device Group ({pa.device_group})? [y/n]: ")
-
-                # Update xpath to new device-group
-                if same_dg == "n":
-                    new_device_group = get_device_group(pa)
-                    xpath = xpath.replace(pa.device_group, new_device_group)
-
-            fname = filename.rsplit('/', 1)[1]  # Get filename, strip any folders before the filename.
-            load_url = f"https://{pa.pa_ip}:443/api/?type=op&key={pa.key}&cmd=<load><config><partial><mode>replace</mode><from-xpath>/config/security/rules</from-xpath><to-xpath>{xpath}</to-xpath><from>{fname}</from></partial></config></load>"
-            
-            response = pa.session[pa.pa_ip].get(load_url, verify=False)
-            error_check(response, "Loading Configuration")
-
-            print("\nCandidate configuration successfully loaded...enjoy the new ruleset!")
-            print("Review configuration and Commit manually via the GUI.\n")
-        else:
-            print("\nThank you, finished.\n")
-    
-    return None
-
-
 def addr_obj_check(addrobj):
 
     ips = address_group_lookup(addrobj)
     if not ips:
         ips = address_lookup(addrobj)
+
+    for ip in ips:
+        print(ip)
 
     found = False
     for ip in ips:
@@ -240,114 +172,6 @@ def addr_obj_check(addrobj):
     return False
 
 
-def should_be_cloned(sec_rule):
-    """
-    inner function (possibly to be moved outside later)
-    The bulk of the logic for rule modification is done here
-    Source & destination behave the same, this allows the same code to be used for both.
-
-    :param srcdst: the xml ZONE tag needed for insertion into the new rule
-    :param tofrom: the xml Address-Object tag needed for insertion into the new rule
-    :param x_zone: from or to, zone name
-    :param x_addr: source or destination, address/group object
-    """
-    def add_tag(tag):
-        if "tag" in new_rule:
-            if isinstance(new_rule["tag"]["member"], list):
-                new_rule["tag"]["member"].append(tag)
-            else:
-                temp = new_rule["tag"]["member"]
-                new_rule["tag"]["member"] = [temp, tag]
-        else:
-            new_rule["tag"] = {"member":tag}
-
-
-    def check_and_modify(srcdst, tofrom, x_zone, x_addr):
-        """
-        inner function (possibly to be moved outside later)
-        The bulk of the logic for zone modification is done here
-        Source & destination behave the same, this allows the same code to be used for both.
-
-        :param srcdst: the xml ZONE tag needed for insertion into the new rule
-        :param tofrom: the xml Address-Object tag needed for insertion into the new rule
-        :param x_zone: from or to, zone name
-        :param x_addr: source or destination, address/group object
-        """
-        clone = False
-        singleip = False
-        for subnet in settings.EXISTING_TRUST_SUBNET:
-            if subnet.endswith("/32"):
-                singleip = True
-
-        try:
-
-            for zone in x_zone: 
-                if zone == settings.EXISTING_TRUST_ZONE:
-                    for addrobj in x_addr:
-                        if addrobj == "any":
-                            if not singleip:
-                                # Clone/Modify this
-                                clone = True
-                                new_rule[tofrom]["member"].remove(zone) if zone in new_rule[tofrom]["member"] else clone
-                                if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
-                                    new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
-                            else:
-                                # Single-IP, only clone/tag for review the rules relevant to the single IP
-                                pass
-                        else:
-                            # Check address object against EXISTING_TRUST_SUBNET
-                            tag = addr_obj_check(addrobj)
-                            if tag:
-                                clone = True
-                                add_tag(settings.REVIEW_TAG)
-                                new_rule[tofrom]["member"].remove(zone) if zone in new_rule[tofrom]["member"] else clone
-                                if settings.NEW_EASTWEST_ZONE not in new_rule[tofrom]["member"]:
-                                    new_rule[tofrom]["member"].append(settings.NEW_EASTWEST_ZONE)
-                            else:
-                                # Don't need this address object even if we end up cloning the rule.
-                                new_rule[srcdst]["member"].remove(addrobj)
-
-                else:
-                    # ZONE NOT RELEVANT TO THIS DISCUSSION
-                    pass
-
-        except TypeError:
-            print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
-            sys.exit(0)              
-
-        
-        # Return True/False
-        if clone:
-            add_tag(settings.CLONED_TAG)
-            new_rule["@name"] = new_rule["@name"] + "-cloned"
-        return clone
-    
-    new_rule = copy.deepcopy(sec_rule)
-
-    from_zone = sec_rule.fromzone
-    to_zone = sec_rule.tozone
-    src_addr = sec_rule.source
-    dst_addr = sec_rule.destination
-
-    print(f"name = {sec_rule.name}, from_zone = {from_zone}, src_addr = {src_addr}")
-
-    new_rule.name += "-cloned"
-
-    # Check and modify to intra-zone based rules
-    # clone = check_and_modify("source", "from", from_zone,src_addr)
-
-    # if clone:
-    #     check_and_modify("destination", "to", to_zone,dst_addr)
-    # else:
-    #     clone = check_and_modify("destination", "to", to_zone,dst_addr)
-
-    # # Return new_rule or False
-    # if clone:
-    #     return new_rule
-    # else:
-    #     return False
-
-
 def eastwest_addnew_zone(security_rules, panfw):
     """
     MODIFY SECURITY RULES
@@ -357,70 +181,91 @@ def eastwest_addnew_zone(security_rules, panfw):
     :return: modified_rules, new/modified security rule-set
     """
 
-    def eastwest_add(sec_rule):
-        new_ruleset.append(sec_rule)
-        return None
-
-    def eastwest_clone(sec_rule):
-        new_ruleset.append(sec_rule)
-        return None
-
-    def sdk_test(sec_rule, panfw):
+    def should_be_cloned(sec_rule, srcdst):
         new_rule = copy.deepcopy(sec_rule)
 
-        from_zone = sec_rule.fromzone
-        to_zone = sec_rule.tozone
-        src_addr = sec_rule.source
-        dst_addr = sec_rule.destination
+        if srcdst == "src":
+            x_zone = sec_rule.fromzone
+            x_addr = sec_rule.source
+            new_x_zone = new_rule.fromzone
+            new_x_addr = new_rule.source
+        else: # == "dst"
+            x_zone = sec_rule.tozone
+            x_addr = sec_rule.destination
+            new_x_zone = new_rule.tozone
+            new_x_addr = new_rule.destination
 
-        print(f"name = {sec_rule.name}, from_zone = {from_zone}, src_addr = {src_addr}")
+        clone = False
+        singleip = False
+        for subnet in settings.EXISTING_TRUST_SUBNET:
+            if subnet.endswith("/32"):
+                singleip = True
 
-        new_rule.name += "-cloned"
-        return new_rule
+        # x = src or dest
+        for zone in x_zone: 
+            if zone == settings.EXISTING_TRUST_ZONE:
+                for addrobj in x_addr:
+                    if addrobj == "any":
+                        if not singleip:
+                            # Clone/Modify this
+                            clone = True
+                            if zone in new_x_zone:
+                                new_x_zone.remove(zone)
+                            if settings.NEW_EASTWEST_ZONE not in new_x_zone:
+                                new_x_zone.append(settings.NEW_EASTWEST_ZONE)
+                        else:
+                            # If searching for only Single-IP, only clone/tag for review 
+                            # the rules relevant to the single IP, ignore 'any' rules
+                            # Idea being you are being very specific here, and probably don't need to close the
+                            # 'any' rules again.
+                            pass
+                    else:
+                        #Check address object against EXISTING_TRUST_SUBNET
+                        tag = addr_obj_check(addrobj)
+                        if tag:
+                            clone = True
+                            #add_tag(settings.REVIEW_TAG)
+                            if zone in new_x_zone:
+                                new_x_zone.remove(zone)
+                            if settings.NEW_EASTWEST_ZONE not in new_x_zone:
+                                new_x_zone.append(settings.NEW_EASTWEST_ZONE)
+                        else:
+                            # Don't need this address object even if we end up cloning the rule.
+                            new_x_addr.remove(addrobj)
+            else:
+                # ZONE NOT RELEVANT TO THIS DISCUSSION
+                pass
 
-    #new_ruleset = []
-    # if not isinstance(security_rules, list):
-    #     security_rules = [security_rules]
+        # Return True/False
+        if clone:
+            #add_tag(settings.CLONED_TAG)
+            new_rule.name += "-cloned"
+            return new_rule
+        return False
+
+
     print("\nModifying...\n")
 
     for k, oldrule in enumerate(security_rules):
 
-        # Check if rule should be cloned
-        # new_rule = should_be_cloned(oldrule)
-        # if new_rule:
-        #     eastwest_clone(new_rule)
-        #     eastwest_add(oldrule)
-        # else:
-        #     eastwest_add(oldrule)
-        
-        new_rule = sdk_test(oldrule, panfw)
-        print(f"index: {k}, old_rule: {oldrule.name}")
-        print(type(oldrule))
-        print(type(new_rule))
-        #print(f"newindex: {panfw.find_index(name=oldrule.name, class_type=policies.SecurityRule)}")
-        
-        #if k == 3:
-        panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
-        new_rule.move('before', ref=oldrule.name, update=False)
-        # else:
-        #     panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
+        new_rule = should_be_cloned(oldrule, "src")
+        if new_rule:
+            should_be_cloned(oldrule, "dst")
+        else:
+            new_rule = should_be_cloned(oldrule, "dst")
+           
+        #if to be cloned
+        if new_rule:
+            panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
+            new_rule.move('before', ref=oldrule.name, update=False)
 
 
     print("..Done.")
-
-    #found = panfw.find_index(class_type=policies.SecurityRule)
-    # found = "nope"
-    # for k, child in enumerate(panfw.findall(class_type=policies.Rulebase)[0]):
-    #     print(f"child={child}\ntype = {type(child)}")
-    #     if child.uid == "MacMini":
-    #         found = k
-    # print(f"newindex: {found}")
 
     panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
 
     sys.exit(0)
     return new_ruleset
-
 
 
 def get_device_group(pa):
@@ -547,9 +392,9 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         #mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
         #mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
         #security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
-        
-        mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=True)
-        mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=True)
+
+        mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=False)
+        mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=False)
 
         rulebase = policies.Rulebase()
         panfw.add(rulebase)

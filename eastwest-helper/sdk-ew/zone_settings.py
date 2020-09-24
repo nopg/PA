@@ -8,11 +8,11 @@ PUSH_CONFIG_TO_PA = True                # Load new ruleset as partial named conf
 REVIEW_TAG = "east-west-helper-review"  # Tag name for rules that need to be reviewed (Address Object Name/IP)
 CLONED_TAG = "east-west-helper-cloned"  # Tag name for cloned/any rules
 
-EXISTING_TRUST_ZONE = "Internal"         # Name of existing 'inside' zone containing subnet(s) to be moved
-NEW_EASTWEST_ZONE = "DataBase-Servers"        # Name of new zone that servers will be moving to
+EXISTING_TRUST_ZONE = "trusted"         # Name of existing 'inside' zone containing subnet(s) to be moved
+NEW_EASTWEST_ZONE = "NEW-PRIVATE-ZONE-NAME"        # Name of new zone that servers will be moving to
 
 EXISTING_TRUST_SUBNET = [
-    "10.14.96.0/24",        # Inside subnet(s) that will be moved to the new zone. Must be of type list.
+    "192.168.77.0/24",        # Inside subnet(s) that will be moved to the new zone. Must be of type list.
    #"192.168.78.0/24",      # Example if using more than one subnet. Uncomment and update.
    # SECOND SUBNET NOT OFFICIALLY SUPPORTED --- WILL BE SOON. works but adds extra unnecessary tags.
 ]
