@@ -121,7 +121,6 @@ def address_lookup(entry):
 
     found = False
     for addr_object in mem.address_object_entries:
-        #print(f"debug, addr-obj= {addr_object}")
         if entry in addr_object.get("@name"):
             if "ip-netmask" in addr_object:
                 found = True
@@ -481,10 +480,12 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
 
         # Modify the rules, Pre & Post, then append to output list
-        if pre_security_rules["result"]["rules"]:
-            if "entry" in pre_security_rules["result"]["rules"]:
-                modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
-                to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
+        if pre_security_rules:
+            if pre_security_rules["result"]:
+                if pre_security_rules["result"]["rules"]:
+                    if "entry" in pre_security_rules["result"]["rules"]:
+                        modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
+                        to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules:
             if post_security_rules["result"]:
                 if post_security_rules["result"]["rules"]:
@@ -500,7 +501,13 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ
         XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP
         mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
-        mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
+        address_groups = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
+        if address_groups:
+            if not isinstance(address_groups, list):
+                print('notlist')
+                mem.address_group_entries = [address_groups]
+            else:
+                mem.address_group_entries = address_groups
         security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
         if security_rules["result"]:
             # Modify the rules, append to be output
