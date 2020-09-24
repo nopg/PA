@@ -50,6 +50,14 @@ import xmltodict
 import api_lib_pa as pa_api
 import zone_settings as settings
 
+from panos import base
+from panos import firewall
+from panos import panorama
+from panos import policies
+from panos import objects
+from panos import network
+from panos import device
+
 ###############################################################################################
 
 class mem:
@@ -272,12 +280,6 @@ def should_be_cloned(sec_rule):
                 singleip = True
 
         try:
-            if not isinstance(x_zone, list):
-                x_zone = [x_zone]
-                new_rule[tofrom]["member"] = [new_rule[tofrom]["member"]]
-            if not isinstance(x_addr, list):
-                x_addr = [x_addr]
-                new_rule[srcdst]["member"] = [new_rule[srcdst]["member"]]
 
             for zone in x_zone: 
                 if zone == settings.EXISTING_TRUST_ZONE:
@@ -313,11 +315,6 @@ def should_be_cloned(sec_rule):
             print("\nError, candidate config detected. Please commit or revert changes before proceeding.\n")
             sys.exit(0)              
 
-        # If I only made it a list to make it easier on myself, change it back.
-        if len(new_rule[tofrom]["member"]) == 1:
-            new_rule[tofrom]["member"] = new_rule[tofrom]["member"][0]
-        if len(new_rule[srcdst]["member"]) == 1:
-            new_rule[srcdst]["member"] = new_rule[srcdst]["member"][0]
         
         # Return True/False
         if clone:
@@ -327,27 +324,31 @@ def should_be_cloned(sec_rule):
     
     new_rule = copy.deepcopy(sec_rule)
 
-    from_zone = sec_rule["from"]["member"]
-    to_zone = sec_rule["to"]["member"]
-    src_addr = sec_rule["source"]["member"]
-    dst_addr = sec_rule["destination"]["member"]
+    from_zone = sec_rule.fromzone
+    to_zone = sec_rule.tozone
+    src_addr = sec_rule.source
+    dst_addr = sec_rule.destination
+
+    print(f"name = {sec_rule.name}, from_zone = {from_zone}, src_addr = {src_addr}")
+
+    new_rule.name += "-cloned"
 
     # Check and modify to intra-zone based rules
-    clone = check_and_modify("source", "from", from_zone,src_addr)
+    # clone = check_and_modify("source", "from", from_zone,src_addr)
 
-    if clone:
-        check_and_modify("destination", "to", to_zone,dst_addr)
-    else:
-        clone = check_and_modify("destination", "to", to_zone,dst_addr)
+    # if clone:
+    #     check_and_modify("destination", "to", to_zone,dst_addr)
+    # else:
+    #     clone = check_and_modify("destination", "to", to_zone,dst_addr)
 
-    # Return new_rule or False
-    if clone:
-        return new_rule
-    else:
-        return False
+    # # Return new_rule or False
+    # if clone:
+    #     return new_rule
+    # else:
+    #     return False
 
 
-def eastwest_addnew_zone(security_rules):
+def eastwest_addnew_zone(security_rules, panfw):
     """
     MODIFY SECURITY RULES
     This accepts a dictionary of rules and 
@@ -363,24 +364,44 @@ def eastwest_addnew_zone(security_rules):
     def eastwest_clone(sec_rule):
         new_ruleset.append(sec_rule)
         return None
-    
-    new_ruleset = []
-    if not isinstance(security_rules, list):
-        security_rules = [security_rules]
+
+    def sdk_test(sec_rule, panfw):
+        new_rule = copy.deepcopy(sec_rule)
+
+        from_zone = sec_rule.fromzone
+        to_zone = sec_rule.tozone
+        src_addr = sec_rule.source
+        dst_addr = sec_rule.destination
+
+        print(f"name = {sec_rule.name}, from_zone = {from_zone}, src_addr = {src_addr}")
+
+        new_rule.name += "-cloned"
+        return new_rule
+
+    #new_ruleset = []
+    # if not isinstance(security_rules, list):
+    #     security_rules = [security_rules]
     print("\nModifying...\n")
 
     for oldrule in security_rules:
 
         # Check if rule should be cloned
-        new_rule = should_be_cloned(oldrule)
-        if new_rule:
-            eastwest_clone(new_rule)
-            eastwest_add(oldrule)
-        else:
-            eastwest_add(oldrule)
+        # new_rule = should_be_cloned(oldrule)
+        # if new_rule:
+        #     eastwest_clone(new_rule)
+        #     eastwest_add(oldrule)
+        # else:
+        #     eastwest_add(oldrule)
+        new_rule = sdk_test(oldrule, panfw)
+        panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
 
     print("..Done.")
+
+    panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
+
+    sys.exit(0)
     return new_ruleset
+
 
 
 def get_device_group(pa):
@@ -414,6 +435,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 
     if pa_type != "xml":
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
+    
     to_output = []
 
     if pa_type == "xml":
@@ -426,17 +448,18 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 
     elif pa_type == "panorama":
 
+        # Grab 'start' time
+        start = time.perf_counter()
+
+        panfw = panorama.Panorama(pa_ip, username, password)
         # Grab the Device Groups and Template Names, we don't need Template names.
         pa.device_group = get_device_group(pa)
 
-        # Grab 'start' time
-        start = time.perf_counter()
-    
-        # Set the XPath now that we have the Device Group
-        XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GROUP_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
-        XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
+        # # Set the XPath now that we have the Device Group
+        # XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", pa.device_group)
+        # XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", pa.device_group)
+        # XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
+        # XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
 
         # Grab Rules
         mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
@@ -462,7 +485,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 
         if settings.OBJ_PARENT_DEVICE_GROUP:
             XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
-            XPATH_GRP = pa_api.XPATH_ADDRESS_GROUP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+            XPATH_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
 
             print(f"Grabbing the {settings.OBJ_PARENT_DEVICE_GROUP} address objects and groups..")
             shared_objs = pa.grab_address_objects("xml", XPATH_ADDR, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-objects.xml")
@@ -495,17 +518,28 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
     elif pa_type == "pa":
         # Grab 'start' time
         start = time.perf_counter()
+
+        panfw = firewall.Firewall(pa_ip, username, password)
+
         # Grab Rules
-        XPATH = pa_api.XPATH_SECURITYRULES
-        XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ
-        XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP
-        mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
-        mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
-        security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
-        if security_rules["result"]:
+        # XPATH = pa_api.XPATH_SECURITYRULES
+        # XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ
+        # XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP
+        #mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
+        #mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
+        #security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
+        
+        mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=True)
+        mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=True)
+
+        rulebase = policies.Rulebase()
+        panfw.add(rulebase)
+        security_rules = policies.SecurityRule.refreshall(rulebase)
+
+        if security_rules:
             # Modify the rules, append to be output
-            modified_rules = eastwest_addnew_zone(security_rules["result"]["rules"]["entry"])
-            to_output.append([modified_rules,"output/modified-pa-rules.xml", XPATH, pa])
+            modified_rules = eastwest_addnew_zone(security_rules, panfw)
+            to_output.append([modified_rules,"output/modified-pa-rules.xml", pa_api.XPATH_SECURITYRULES, pa])
 
     # Begin creating output and/or pushing rules to PA/PAN
     for ruletype in to_output:
@@ -541,10 +575,12 @@ if __name__ == "__main__":
 
     # Create connection with the Palo Alto as 'obj' to test login success
     try:
-        paobj = pa_api.api_lib_pa(pa_ip, username, password, "test")
-        del(paobj)
-    except:
+        panfw = firewall.Firewall(pa_ip, username, password)
+        del(panfw)
+    except Exception as e:
         print(f"Error connecting to: {pa_ip}\nCheck username/password and network connectivity.")
+        print()
+        print(e)
         sys.exit(0)
 
     # PA or Panorama?

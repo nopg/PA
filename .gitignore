@@ -4,3 +4,4 @@
 env-*/
 becu/examples/
 __pycache__/
+.env

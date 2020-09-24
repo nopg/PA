@@ -44,7 +44,6 @@ import json
 import xmltodict
 import xml.dom.minidom
 from datetime import datetime
-import copy
 
 import requests
 
@@ -58,8 +57,6 @@ DEBUG = False
 
 #PA:
 XPATH_ADDRESS_OBJ =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address"
-XPATH_ADDRESS_GRP =  "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/address-group"
-
 XPATH_INTERFACES =    "/config/devices/entry[@name='localhost.localdomain']/network/interface"
 XPATH_SECURITYRULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules"
 XPATH_NAT_RULES = "/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/nat/rules"
@@ -91,8 +88,6 @@ XPATH_SCHEDULE_PAN = "/config/devices/entry[@name='localhost.localdomain']/devic
 XPATH_APP_FILTER_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/application-filter"
 XPATH_DOS_PROTECTION_PAN = "/config/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']/profiles/dos-protection"
 SHARED_REPLACE = "/devices/entry[@name='localhost.localdomain']/device-group/entry[@name='DEVICE_GROUP']"
-XPATH_ADDRESS_OBJ_SHARED = "/config/shared/address"
-XPATH_ADDRESS_GRP_SHARED = "/config/shared/address-group"
 #########################################################################################################
 
 # Menu to grab PA/Panorama Type
@@ -204,17 +199,6 @@ def create_json_files(temp, filename):
 
     # print("\tCreated: {}\n".format(filename))
 
-
-def validate_output(output_type):
-    validated_output = copy.deepcopy(output_type)
-
-    if output_type:
-        if output_type.get("result"):
-            return validated_output["result"]
-    else:
-        return None
-
-
 # XML API Class for use with Palo Alto API
 class api_lib_pa:
     # Upon creation:
@@ -259,30 +243,6 @@ class api_lib_pa:
         if not self.key:
             print(f"Login Failed: Response=\n{temp}")
             sys.exit(0)
-
-
-    def grab_address_objects(self, xml_or_rest, xpath_or_restcall, filename=None,):
-        address_objects = self.grab_api_output(
-            xml_or_rest, xpath_or_restcall, filename
-        )
-        addr_objects = validate_output(address_objects)
-        if addr_objects:
-            if addr_objects["address"]:
-                return addr_objects["address"]["entry"]
-            else:
-                return None
-
-
-    def grab_address_groups(self, xml_or_rest, xpath_or_restcall, filename=None,):
-        address_grp_objects = self.grab_api_output(
-            xml_or_rest, xpath_or_restcall, filename
-        )
-        addr_grp_objects = validate_output(address_grp_objects)
-        if addr_grp_objects:
-            if addr_grp_objects["address-group"]:
-                return addr_grp_objects["address-group"]["entry"]
-            else:
-                return None
 
 
     # Grab Panorama Device Groups & Templates
