@@ -63,6 +63,9 @@ from panos import device
 class mem:
     address_object_entries = None
     address_group_entries = None
+    rulebase = None
+    prerulebase = None
+    postrulebase = None
 
 def grab_xml_or_json_file(filename):
     """
@@ -181,8 +184,7 @@ def eastwest_addnew_zone(security_rules, panfw):
     :return: modified_rules, new/modified security rule-set
     """
 
-    def should_be_cloned(sec_rule, srcdst):
-        new_rule = copy.deepcopy(sec_rule)
+    def should_be_cloned(sec_rule, new_rule, srcdst):
 
         if srcdst == "src":
             x_zone = sec_rule.fromzone
@@ -246,23 +248,33 @@ def eastwest_addnew_zone(security_rules, panfw):
 
     print("\nModifying...\n")
 
-    for k, oldrule in enumerate(security_rules):
+    for oldrule in security_rules:
 
-        new_rule = should_be_cloned(oldrule, "src")
+        newrule = copy.deepcopy(oldrule)
+        new_rule = should_be_cloned(oldrule, newrule, "src")
         if new_rule:
-            should_be_cloned(oldrule, "dst")
+            should_be_cloned(oldrule, newrule, "dst")
         else:
-            new_rule = should_be_cloned(oldrule, "dst")
+            new_rule = should_be_cloned(oldrule, newrule, "dst")
            
         #if to be cloned
         if new_rule:
-            panfw.findall(class_type=policies.Rulebase)[0].add(new_rule)
-            new_rule.move('before', ref=oldrule.name, update=False)
+            if isinstance(panfw, firewall.Firewall):
+                mem.rulebase.add(new_rule)
+                new_rule.move('before', ref=oldrule.name, update=False)
+            else:
+                mem.postrulebase.add(new_rule)
+                new_rule.move('before', ref=oldrule.name, update=False)
 
 
     print("..Done.")
 
-    panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
+    if isinstance(panfw, firewall.Firewall):
+        #panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
+        mem.rulebase.children[0].apply_similar()
+    else:
+        #panfw.findall(class_type=policies.PreRulebase)[0].children[0].apply_similar()
+        mem.postrulebase.children[0].apply_similar()
 
     sys.exit(0)
     return new_ruleset
@@ -317,67 +329,61 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 
         panfw = panorama.Panorama(pa_ip, username, password)
         # Grab the Device Groups and Template Names, we don't need Template names.
-        pa.device_group = get_device_group(pa)
+        device_group = get_device_group(pa)
+        pre_rulebase = policies.PreRulebase()
+        post_rulebase = policies.PostRulebase()
+        mem.prerulebase = pre_rulebase
+        mem.postrulebase = post_rulebase
+        dg = panorama.DeviceGroup(device_group)
+        dg.add(pre_rulebase)
+        dg.add(post_rulebase)
+        panfw.add(dg)
 
-        # # Set the XPath now that we have the Device Group
-        # XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", pa.device_group)
-        # XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", pa.device_group)
-        # XPATH_PRE = pa_api.XPATH_SECURITY_RULES_PRE_PAN.replace("DEVICE_GROUP", pa.device_group)
-        # XPATH_POST = pa_api.XPATH_SECURITY_RULES_POST_PAN.replace("DEVICE_GROUP", pa.device_group)
+        # Grab Objects and Rules
+        mem.address_object_entries = objects.AddressObject.refreshall(panfw)#,add=False)
+        mem.address_group_entries = objects.AddressGroup.refreshall(panfw)#,add=False)
 
-        # Grab Rules
-        mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
-        mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
-
-        if not isinstance(mem.address_object_entries, list):
-            mem.address_object_entries = [mem.address_object_entries]
-        if not isinstance(mem.address_group_entries,list):
-            mem.address_group_entries = [mem.address_group_entries]
-
-        shared_objs = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
-        if shared_objs:
-            if not isinstance(shared_objs, list):
-                shared_objs = [shared_objs]
-            mem.address_object_entries += shared_objs
+        # shared_objs = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
+        # if shared_objs:
+        #     if not isinstance(shared_objs, list):
+        #         shared_objs = [shared_objs]
+        #     mem.address_object_entries += shared_objs
         
-        print("Grabbing the Shared address objects and groups..")
-        shared_grps = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
-        if shared_grps:
-            if not isinstance(shared_grps, list):
-                shared_grps = [shared_grps]
-            mem.address_group_entries += shared_grps
+        # print("Grabbing the Shared address objects and groups..")
+        # shared_grps = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
+        # if shared_grps:
+        #     if not isinstance(shared_grps, list):
+        #         shared_grps = [shared_grps]
+        #     mem.address_group_entries += shared_grps
 
-        if settings.OBJ_PARENT_DEVICE_GROUP:
-            XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
-            XPATH_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+        # if settings.OBJ_PARENT_DEVICE_GROUP:
+        #     XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+        #     XPATH_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
 
-            print(f"Grabbing the {settings.OBJ_PARENT_DEVICE_GROUP} address objects and groups..")
-            shared_objs = pa.grab_address_objects("xml", XPATH_ADDR, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-objects.xml")
-            if shared_objs:
-                if not isinstance(shared_objs, list):
-                    shared_objs = [shared_objs]
-                mem.address_object_entries += shared_objs
+        #     print(f"Grabbing the {settings.OBJ_PARENT_DEVICE_GROUP} address objects and groups..")
+        #     shared_objs = pa.grab_address_objects("xml", XPATH_ADDR, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-objects.xml")
+        #     if shared_objs:
+        #         if not isinstance(shared_objs, list):
+        #             shared_objs = [shared_objs]
+        #         mem.address_object_entries += shared_objs
             
-            shared_grps = pa.grab_address_groups("xml", XPATH_GRP, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-groups.xml")
-            if shared_grps:
-                if not isinstance(shared_grps, list):
-                    shared_grps = [shared_grps]
-                mem.address_group_entries += shared_grps
+        #     shared_grps = pa.grab_address_groups("xml", XPATH_GRP, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-groups.xml")
+        #     if shared_grps:
+        #         if not isinstance(shared_grps, list):
+        #             shared_grps = [shared_grps]
+        #         mem.address_group_entries += shared_grps
 
-        pre_security_rules = pa.grab_api_output("xml", XPATH_PRE, "output/api/pre-rules.xml")
-        post_security_rules = pa.grab_api_output("xml", XPATH_POST, "output/api/post-rules.xml")
+        pre_security_rules = policies.SecurityRule.refreshall(pre_rulebase, add=False)
+        post_security_rules = policies.SecurityRule.refreshall(post_rulebase)#, add=False)
+
 
         # Modify the rules, Pre & Post, then append to output list
-        if pre_security_rules["result"]["rules"]:
-            if "entry" in pre_security_rules["result"]["rules"]:
-                modified_rules_pre = eastwest_addnew_zone(pre_security_rules["result"]["rules"]["entry"])
-                to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
+        if pre_security_rules:
+            modified_rules_pre = eastwest_addnew_zone(pre_security_rules, panfw)
+            #to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
         if post_security_rules:
-            if post_security_rules["result"]:
-                if post_security_rules["result"]["rules"]:
-                    if "entry" in post_security_rules["result"]["rules"]:
-                        modified_rules_post = eastwest_addnew_zone(post_security_rules["result"]["rules"]["entry"])
-                        to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
+            modified_rules_post = eastwest_addnew_zone(post_security_rules, panfw)
+            #to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
             
     elif pa_type == "pa":
         # Grab 'start' time
@@ -397,6 +403,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=False)
 
         rulebase = policies.Rulebase()
+        mem.rulebase = rulebase
         panfw.add(rulebase)
         security_rules = policies.SecurityRule.refreshall(rulebase)
 
