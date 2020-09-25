@@ -18,7 +18,7 @@ EXISTING_TRUST_SUBNET = [
 ]
 # EXISTING_TRUST_SUBNET = ["192.168.77.14/32"]  # If mask is /32, will check address-objects, not 'any' rules.
 
-OBJ_PARENT_DEVICE_GROUP = False # Only used if a parent device-group contains the address group/objects (not for Shared)
-#OBJ_PARENT_DEVICE_GROUP = "All-Locations"
+#OBJ_PARENT_DEVICE_GROUP = False # Only used if a parent device-group contains the address group/objects (not for Shared)
+OBJ_PARENT_DEVICE_GROUP = "All-locations"
 
 ####### EDIT ABOVE #############################################################################################

@@ -67,30 +67,6 @@ class mem:
     prerulebase = None
     postrulebase = None
 
-def grab_xml_or_json_file(filename):
-    """
-    Read PA file, return dict based on xml or json
-    """
-    output = None
-
-    try:
-        with open(filename, "r") as fin:
-            data = fin.read()
-            if filename.endswith(".xml"):
-                output = xmltodict.parse(data)
-                if "response" in output:
-                    output = output["response"]
-                else:
-                    output = output["config"]["security"]
-                    output = {"result": output}
-            elif filename.endswith(".json"):
-                output = json.loads(data)        
-    except FileNotFoundError:
-        print("\nFile not found, check filename.\n")
-        sys.exit(0)
-
-    return output
-
 
 def address_group_lookup(entry):
 
@@ -249,7 +225,11 @@ def eastwest_addnew_zone(security_rules, panfw):
 
     for oldrule in security_rules:
 
+        beg = time.perf_counter()
         newrule = copy.deepcopy(oldrule)
+        end = time.perf_counter()
+        print(f"time for copy: {end - beg}")
+
         new_rule = should_be_cloned(oldrule, newrule, "src")
         if new_rule:
             should_be_cloned(oldrule, newrule, "dst")
@@ -257,6 +237,7 @@ def eastwest_addnew_zone(security_rules, panfw):
             new_rule = should_be_cloned(oldrule, newrule, "dst")
            
         #if to be cloned
+        beg = time.perf_counter()
         if new_rule:
             if isinstance(panfw, firewall.Firewall):
                 mem.rulebase.add(new_rule)
@@ -264,7 +245,8 @@ def eastwest_addnew_zone(security_rules, panfw):
             else:
                 mem.postrulebase.add(new_rule)
                 new_rule.move('before', ref=oldrule.name, update=False)
-
+        end = time.perf_counter()
+        print(f"time for add: {end - beg}")
 
     print("..Done.")
 
@@ -275,8 +257,7 @@ def eastwest_addnew_zone(security_rules, panfw):
         #panfw.findall(class_type=policies.PreRulebase)[0].children[0].apply_similar()
         mem.postrulebase.children[0].apply_similar()
 
-    sys.exit(0)
-    return new_ruleset
+    return None
 
 
 def get_device_group(pa):
@@ -308,26 +289,14 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
     Modify them for intra-zone migration.
     """
 
-    if pa_type != "xml":
-        pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
-    
-    to_output = []
-
-    if pa_type == "xml":
-        # Grab 'start' time
-        start = time.perf_counter()
-        # Grab XML file, modify rules, and create output file.
-        security_rules = grab_xml_or_json_file(filename)
-        modified_rules = eastwest_addnew_zone(security_rules["result"]["rules"]["entry"])
-        output_and_push_changes(modified_rules, "output/modified-xml-rules.xml")
-
-    elif pa_type == "panorama":
+    if pa_type == "panorama":
 
         # Grab 'start' time
         start = time.perf_counter()
 
         panfw = panorama.Panorama(pa_ip, username, password)
         # Grab the Device Groups and Template Names, we don't need Template names.
+        pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
         device_group = get_device_group(pa)
         pre_rulebase = policies.PreRulebase()
         post_rulebase = policies.PostRulebase()
@@ -342,47 +311,34 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         mem.address_object_entries = objects.AddressObject.refreshall(dg, add=False)#,add=False)
         mem.address_group_entries = objects.AddressGroup.refreshall(dg, add=False)#,add=False)
 
-        # shared_objs = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
-        # if shared_objs:
-        #     if not isinstance(shared_objs, list):
-        #         shared_objs = [shared_objs]
-        #     mem.address_object_entries += shared_objs
-        
-        # print("Grabbing the Shared address objects and groups..")
-        # shared_grps = pa.grab_address_groups("xml", pa_api.XPATH_ADDRESS_GRP_SHARED, "output/api/shared-address-groups.xml")
-        # if shared_grps:
-        #     if not isinstance(shared_grps, list):
-        #         shared_grps = [shared_grps]
-        #     mem.address_group_entries += shared_grps
+        #Grabbing the Shared address objects and groups..
+        shared = panorama.DeviceGroup('shared')
+        panfw.add(shared)
 
-        # if settings.OBJ_PARENT_DEVICE_GROUP:
-        #     XPATH_ADDR = pa_api.XPATH_ADDRESS_OBJ_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
-        #     XPATH_GRP = pa_api.XPATH_ADDRESS_GRP_PAN.replace("DEVICE_GROUP", settings.OBJ_PARENT_DEVICE_GROUP)
+        shared_objects = objects.AddressObject.refreshall(shared, add=False)
+        mem.address_object_entries += shared_objects
+        shared_groups = objects.AddressGroup.refreshall(shared, add=False)
+        mem.address_group_entries += shared_groups
 
-        #     print(f"Grabbing the {settings.OBJ_PARENT_DEVICE_GROUP} address objects and groups..")
-        #     shared_objs = pa.grab_address_objects("xml", XPATH_ADDR, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-objects.xml")
-        #     if shared_objs:
-        #         if not isinstance(shared_objs, list):
-        #             shared_objs = [shared_objs]
-        #         mem.address_object_entries += shared_objs
-            
-        #     shared_grps = pa.grab_address_groups("xml", XPATH_GRP, f"output/api/{settings.OBJ_PARENT_DEVICE_GROUP}-address-groups.xml")
-        #     if shared_grps:
-        #         if not isinstance(shared_grps, list):
-        #             shared_grps = [shared_grps]
-        #         mem.address_group_entries += shared_grps
+        # Add parent DG (like Shared), if used. Ask Chris Evans or me for details.
+        if settings.OBJ_PARENT_DEVICE_GROUP:
+            parent_dg = panorama.DeviceGroup(settings.OBJ_PARENT_DEVICE_GROUP)
+            panfw.add(parent_dg)
 
+            parent_objects = objects.AddressObject.refreshall(parent_dg, add=False)
+            mem.address_object_entries += parent_objects
+            parent_groups = objects.AddressGroup.refreshall(parent_dg, add=False)
+            mem.address_group_entries += parent_groups
+
+        # GRAB PRE/POST RULES
         pre_security_rules = policies.SecurityRule.refreshall(pre_rulebase)#, add=False)
         post_security_rules = policies.SecurityRule.refreshall(post_rulebase)#, add=False)
 
-
-        # Modify the rules, Pre & Post, then append to output list
+        # Modify the rules, Pre & Post
         if pre_security_rules:
-            modified_rules_pre = eastwest_addnew_zone(pre_security_rules, panfw)
-            #to_output.append([modified_rules_pre,"output/modified-pre-rules.xml", XPATH_PRE, pa])
+            eastwest_addnew_zone(pre_security_rules, panfw)
         if post_security_rules:
-            modified_rules_post = eastwest_addnew_zone(post_security_rules, panfw)
-            #to_output.append([modified_rules_post,"output/modified-post-rules.xml", XPATH_POST, pa])
+            eastwest_addnew_zone(post_security_rules, panfw)
             
     elif pa_type == "pa":
         # Grab 'start' time
@@ -391,13 +347,6 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         panfw = firewall.Firewall(pa_ip, username, password)
 
         # Grab Rules
-        # XPATH = pa_api.XPATH_SECURITYRULES
-        # XPATH_ADDR_OBJ = pa_api.XPATH_ADDRESS_OBJ
-        # XPATH_ADDR_GRP = pa_api.XPATH_ADDRESS_GRP
-        #mem.address_object_entries = pa.grab_address_objects("xml", XPATH_ADDR_OBJ, "output/api/address-objects.xml")
-        #mem.address_group_entries = pa.grab_address_groups("xml", XPATH_ADDR_GRP, "output/api/address-groups.xml")
-        #security_rules = pa.grab_api_output("xml", XPATH, "output/api/pa-rules.xml")
-
         mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=False)
         mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=False)
 
@@ -406,15 +355,11 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         panfw.add(rulebase)
         security_rules = policies.SecurityRule.refreshall(rulebase)
 
+        # Modify the rules
         if security_rules:
-            # Modify the rules, append to be output
             modified_rules = eastwest_addnew_zone(security_rules, panfw)
-            to_output.append([modified_rules,"output/modified-pa-rules.xml", pa_api.XPATH_SECURITYRULES, pa])
 
-    # Begin creating output and/or pushing rules to PA/PAN
-    for ruletype in to_output:
-        output_and_push_changes(*ruletype)
-
+    # Finished
     end = time.perf_counter()
     runtime = end - start
     print(f"Took {runtime} Seconds.\n")
@@ -424,19 +369,17 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 if __name__ == "__main__":
 
     # Check arguments, if 'xml' then don't need the rest of the input
-    argrequired = '--xml' not in sys.argv and '-x' not in sys.argv
+    #argrequired = '--xml' not in sys.argv and '-x' not in sys.argv
     parser = argparse.ArgumentParser(description="Please use this syntax:")
-    parser.add_argument("-x", "--xml", help="Optional XML Filename", type=str)
-    parser.add_argument("-u", "--username", help="Username", type=str, required=argrequired)
-    parser.add_argument("-i", "--ipaddress", help="IP or FQDN of PA/Panorama", type=str, required=argrequired)
+    #parser.add_argument("-x", "--xml", help="Optional XML Filename", type=str)
+    parser.add_argument("-u", "--username", help="Username", type=str)#, required=argrequired)
+    parser.add_argument("-i", "--ipaddress", help="IP or FQDN of PA/Panorama", type=str)#, required=argrequired)
     args = parser.parse_args()
 
     # IF XML, do not connect to PA/Pan
-    if args.xml:
-        settings.PUSH_CONFIG_TO_PA = False
-        filename = args.xml
-        becu("n/a","n/a","n/a","xml",filename)
-        sys.exit(0)
+    # if args.xml:
+    #     print("NO LONGER IMPLEMENTED")
+    #     sys.exit(0)
 
     # Gather input
     pa_ip = args.ipaddress
