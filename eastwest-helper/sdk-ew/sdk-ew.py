@@ -123,6 +123,7 @@ def address_lookup(entry):
     """
 
     found = False
+
     for addr_object in mem.address_object_entries:
         if entry == addr_object.name:
             if addr_object.type == "ip-netmask":
@@ -149,9 +150,6 @@ def addr_obj_check(addrobj):
     if not ips:
         ips = address_lookup(addrobj)
 
-    for ip in ips:
-        print(ip)
-
     found = False
     for ip in ips:
         try:
@@ -169,8 +167,9 @@ def addr_obj_check(addrobj):
             else:
                 pass
 
-        except:
+        except Exception as e:
             print("Not supported, call me.")
+            print(e)
     
     return False
 
@@ -340,8 +339,8 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         panfw.add(dg)
 
         # Grab Objects and Rules
-        mem.address_object_entries = objects.AddressObject.refreshall(panfw)#,add=False)
-        mem.address_group_entries = objects.AddressGroup.refreshall(panfw)#,add=False)
+        mem.address_object_entries = objects.AddressObject.refreshall(dg, add=False)#,add=False)
+        mem.address_group_entries = objects.AddressGroup.refreshall(dg, add=False)#,add=False)
 
         # shared_objs = pa.grab_address_objects("xml", pa_api.XPATH_ADDRESS_OBJ_SHARED, "output/api/shared-address-objects.xml")
         # if shared_objs:
@@ -373,7 +372,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         #             shared_grps = [shared_grps]
         #         mem.address_group_entries += shared_grps
 
-        pre_security_rules = policies.SecurityRule.refreshall(pre_rulebase, add=False)
+        pre_security_rules = policies.SecurityRule.refreshall(pre_rulebase)#, add=False)
         post_security_rules = policies.SecurityRule.refreshall(post_rulebase)#, add=False)
 
 
