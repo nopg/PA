@@ -225,10 +225,7 @@ def eastwest_addnew_zone(security_rules, panfw):
 
     for oldrule in security_rules:
 
-        beg = time.perf_counter()
         newrule = copy.deepcopy(oldrule)
-        end = time.perf_counter()
-        print(f"time for copy: {end - beg}")
 
         new_rule = should_be_cloned(oldrule, newrule, "src")
         if new_rule:
@@ -237,7 +234,7 @@ def eastwest_addnew_zone(security_rules, panfw):
             new_rule = should_be_cloned(oldrule, newrule, "dst")
            
         #if to be cloned
-        beg = time.perf_counter()
+        
         if new_rule:
             if isinstance(panfw, firewall.Firewall):
                 mem.rulebase.add(new_rule)
@@ -245,9 +242,7 @@ def eastwest_addnew_zone(security_rules, panfw):
             else:
                 mem.postrulebase.add(new_rule)
                 new_rule.move('before', ref=oldrule.name, update=False)
-        end = time.perf_counter()
-        print(f"time for add: {end - beg}")
-
+              
     print("..Done.")
 
     if isinstance(panfw, firewall.Firewall):
