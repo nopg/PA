@@ -160,29 +160,18 @@ def eastwest_addnew_zone(security_rules, panfw):
     :return: modified_rules, new/modified security rule-set
     """
 
-    def should_be_cloned(sec_rule, new_rule, srcdst):
+    def should_be_cloned(old_rule, srcdst, new_rule={}):
         
-        if srcdst == "src":
-            x_zone = sec_rule.fromzone
-            x_addr = sec_rule.source
-            new_x_zone = new_rule.fromzone
-            new_x_addr = new_rule.source
-        else: # == "dst"
-            x_zone = sec_rule.tozone
-            x_addr = sec_rule.destination
-            new_x_zone = new_rule.tozone
-            new_x_addr = new_rule.destination
+        if not new_rule:
+            new_rule = {}
 
-        print(f"x_zone = {x_zone}")
-        print(f"x_addr = {x_addr}")
-        print(f"new_x_zone = {new_x_zone}")
-        print(f"new_x_addr = {new_x_addr}")
-        new_x_zone = ["hi"]
-        print(f"x_zone = {x_zone}")
-        print(f"x_addr = {x_addr}")
-        print(f"new_x_zone = {new_x_zone}")
-        print(f"new_x_addr = {new_x_addr}")
-        #sys.exit(0)
+        if srcdst == "src":
+            x_zone_attr = 'fromzone'
+            x_addr_attr = 'source'
+        else: # == "dst"
+            x_zone_attr = 'tozone'
+            x_addr_attr = 'destination'
+
         clone = False
         singleip = False
         for subnet in settings.EXISTING_TRUST_SUBNET:
@@ -190,22 +179,21 @@ def eastwest_addnew_zone(security_rules, panfw):
                 singleip = True
 
         # x = src or dest
-        for zone in x_zone: 
+        for zone in getattr(old_rule, x_zone_attr): 
             if zone == settings.EXISTING_TRUST_ZONE:
-                for addrobj in x_addr:
+                for addrobj in getattr(old_rule, x_addr_attr):
                     if addrobj == "any":
                         if not singleip:
                             # Clone/Modify this
                             clone = True
-                            if zone in new_x_zone:
-                                new_x_zone.remove(zone)
-                                print(f"newzone-remove={zone}")
-                            if settings.NEW_EASTWEST_ZONE not in new_x_zone:
-                                new_x_zone.append(settings.NEW_EASTWEST_ZONE)
-                                print(f"newzone-add={settings.NEW_EASTWEST_ZONE}")
-                                print(f"oldzone={zone}")
-                                print(f"oldzone-still={x_zone}")
-                                print(f"newzone={new_x_zone}")
+
+                            if not new_rule:
+                                new_rule = copy.deepcopy(old_rule)
+                            if zone in getattr(new_rule, x_zone_attr):
+                                getattr(new_rule, x_zone_attr).remove(zone)
+                            if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
+                                getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
+
                         else:
                             # If searching for only Single-IP, only clone/tag for review 
                             # the rules relevant to the single IP, ignore 'any' rules
@@ -215,28 +203,22 @@ def eastwest_addnew_zone(security_rules, panfw):
                     else:
                         #Check address object against EXISTING_TRUST_SUBNET
                         tag = addr_obj_check(addrobj)
-                        print(repr(tag))
                         if tag:
                             clone = True
+                            if not new_rule:
+                                new_rule = copy.deepcopy(old_rule)
                             #add_tag(settings.REVIEW_TAG)
-                            print("changing...")
-                            print(f"x_zone = {x_zone}")
-                            print(f"x_addr = {x_addr}")
-                            print(f"new_x_zone = {new_x_zone}")
-                            print(f"new_x_addr = {new_x_addr}")
-                            if zone in new_x_zone:
-                                new_x_zone.remove(zone)
-                            if settings.NEW_EASTWEST_ZONE not in new_x_zone:
-                                new_x_zone.append(settings.NEW_EASTWEST_ZONE)
+
+                            if zone in getattr(new_rule, x_zone_attr):
+                                getattr(new_rule, x_zone_attr).remove(zone)
+                            if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
+                                getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
                             
-                            print(f"x_zone = {x_zone}")
-                            print(f"x_addr = {x_addr}")
-                            print(f"new_x_zone = {new_x_zone}")
-                            print(f"new_x_addr = {new_x_addr}")
                         else:
                             # Don't need this address object even if we end up cloning the rule.
-                            if addrobj in new_x_addr:
-                                new_x_addr.remove(addrobj)
+                            if new_rule:
+                                if addrobj in getattr(new_rule, x_addr_attr):
+                                    getattr(new_rule, x_addr_attr).remove(addrobj)
             else:
                 # ZONE NOT RELEVANT TO THIS DISCUSSION
                 pass
@@ -248,144 +230,18 @@ def eastwest_addnew_zone(security_rules, panfw):
             return new_rule
         return False
 
-
     print("\nModifying...\n")
 
-    def etree_to_dict(t):
-        d = {t.tag : map(etree_to_dict, t.iterchildren())}
-        d.update(('@' + k, v) for k, v in t.attrib.iteritems())
-        d['text'] = t.text
-        return d
-    def elementtree_to_dict(element):
-        node = dict()
-
-        text = getattr(element, 'text', None)
-        if text is not None:
-            node['text'] = text
-
-        node.update(element.items()) # element's attributes
-
-        child_nodes = {}
-        for child in element: # element's children
-            child_nodes.setdefault(child, []).append( elementtree_to_dict(child) )
-
-        # convert all single-element lists into non-lists
-        for key, value in child_nodes.items():
-            if len(value) == 1:
-                child_nodes[key] = value[0]
-
-        node.update(child_nodes.items())
-
-        return node
-    def elem2dict(node):
-        """
-        Convert an lxml.etree node tree into a dict.
-        """
-        result = {}
-
-        for element in node.iterchildren():
-            # Remove namespace prefix
-            key = element.tag.split('}')[1] if '}' in element.tag else element.tag
-
-            # Process element as tree element if the inner XML contains non-whitespace content
-            if element.text and element.text.strip():
-                value = element.text
-            else:
-                value = elem2dict(element)
-            if key in result:
-
-                
-                if type(result[key]) is list:
-                    result[key].append(value)
-                else:
-                    tempvalue = result[key].copy()
-                    result[key] = [tempvalue, value]
-            else:
-                result[key] = value
-        return result
-
     for oldrule in security_rules:
-
-        # test = oldrule.element()
-        # #print(repr(test))
-        # #str_rule = test.decode('utf-8')
-        # print(type(test))
-        # #test2 = xmltodict.parse(test)
-        # #test3 = test2["entry"]
-        # #print(**test2)
-        # #sys.exit(0)
-        # #test5 = elem2dict(test)
-        # #print(test5)
-        # #test3 = etree_to_dict(test.getroot())
-        # #print(repr(test3))
-        # #test2 = json.loads(str_rule)
-
-        # newrule = policies.SecurityRule(oldrule)
-        # #newrule = policies.SecurityRule(**test5)
-        # print(newrule)
-        # print(type(newrule))
-        # print(newrule.name)
-
-        # sys.exit(0)
-
-        bs = ['name','fromzone','tozone','source','source_user','hip_profiles','destination','application','service','category','action','log_setting','log_start','log_end','description','type','tag','negate_source','negate_destination','disabled','schedule','icmp_unreachable','disable_server_response_inspection','group','virus','spyware','vulnerability','url_filtering','file_blocking','wildfire_analysis','data_filtering','negate_target','target']#,'uuid']
-
-        ruledict = {}
-        for f in bs:
-            ruledict[f] = getattr(oldrule, f)
-
-        #newrule1 = copy.deepcopy(oldrule.__dict__)
-        # newrule1.pop('parent')
-        # newrule1.pop('children')
-        # newrule1.pop('_xpaths')
-        # newrule1.pop('_stubs')
-        # newrule1.pop('_params')
-        #newrule = policies.SecurityRule(**newrule1)
-        #newrule = policies.SecurityRule(oldrule)
-        newrule = policies.SecurityRule(**ruledict)
-        # newrule = newrule.name
-        # print(oldrule)
-        # print(newrule)
-        # print(type(oldrule))
-        # print(type(newrule))
-        # print(newrule.name == oldrule.name)
-        # print(newrule.fromzone == oldrule.fromzone)
-        # print(oldrule == newrule)
-        # print(f"oldrule-name-{oldrule.name}")
-        # print(f"newrule-name-{newrule.name}")
-        # print(f"oldrule-source-{oldrule.source}")
-        # print(f"newrule-source-{newrule.source}")
-        # newrule.source = ["hi"]
-        # print(f"oldrule-source-{oldrule.source}")
-        # print(f"newrule-source-{newrule.source}")
-        #sys.exit(0)
-        # print(dir(newrule))
-        # print()
-        # print(newrule._params)
-        # print()
-        # print(newrule.__dict__)
-        # # print(newrule.__dict__)
-        # sys.exit(0)
-
-        new_rule = should_be_cloned(oldrule, newrule, "src")
+        # START CHECKING
+        new_rule = should_be_cloned(oldrule, "src")#, {})
         if new_rule:
-            print("\nback out")
-            print(f"x_zone = {oldrule.fromzone}")
-            print(f"x_addr = {oldrule.source}")
-            print(f"new_x_zone = {new_rule.fromzone}")
-            print(f"new_x_addr = {new_rule.source}")
-            should_be_cloned(oldrule, newrule, "dst")
-            print("\nback out again")
-            print(f"x_zone = {oldrule.fromzone}")
-            print(f"x_addr = {oldrule.source}")
-            print(f"new_x_zone = {new_rule.fromzone}")
-            print(f"new_x_addr = {new_rule.source}")
-            sys.exit(0)
+            temp = should_be_cloned(oldrule, "dst", new_rule)
+            if temp:
+                new_rule = temp
         else:
-            new_rule = should_be_cloned(oldrule, newrule, "dst")
-           
-        #if to be cloned
-        
+            new_rule = should_be_cloned(oldrule, "dst")
+
         if new_rule:
             if isinstance(panfw, firewall.Firewall):
                 mem.rulebase.add(new_rule)
