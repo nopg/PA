@@ -62,7 +62,6 @@ from panos import device
 ###############################################################################################
 
 class mem:
-    panfw = None
     address_object_entries = None
     address_group_entries = None
     singleip = False
@@ -262,7 +261,6 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
 
         panfw = panorama.Panorama(pa_ip, username, password)
-        mem.panfw = panfw
         # Grab the Device Groups and Template Names, we don't need Template names.
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
         device_group = get_device_group(pa)
@@ -311,7 +309,6 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
 
         panfw = firewall.Firewall(pa_ip, username, password)
-        mem.panfw = panfw
 
         # Grab Rules
         mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=False)
