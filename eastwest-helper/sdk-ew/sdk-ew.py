@@ -62,90 +62,49 @@ from panos import device
 ###############################################################################################
 
 class mem:
+    panfw = None
     address_object_entries = None
     address_group_entries = None
     singleip = False
 
 
-def address_group_lookup(entry):
+def addr_obj_check(entry):
+    def address_lookup(address_object, found):
+        for obj in mem.address_object_entries:
+            if address_object in obj.name:
+                if obj.type == "ip-netmask":
+                    found = True
+                    return [obj.value]
+                else:
+                    print("non ip-netmask, add support plz")
+                    return ["1.1.1.1"]
+        if not found:   # IP as Name
+            return [address_object]
+        
+        return None
+
 
     found = False
-
-    for addr_group in mem.address_group_entries:
-        if entry == addr_group.name:
-            if addr_group.static_value:
+    ips = []
+    # Check Objects
+    for grp in mem.address_group_entries:
+        if entry == grp.name:
+            if grp.static_value:
                 found = True
-                member_objects = addr_group.static_value
+                address_objects = grp.static_value
+                for obj in address_objects:
+                    ips += address_lookup(obj, found)
             else:
                 print("Not supported, hi.")
+    if not found:
+        ips += address_lookup(entry, found)
     
-    if not found:
-        return None
-    else:
-        ips = []
-        for member in member_objects:
-            ips += address_lookup(member)
-        
-        return ips
-
-
-def address_lookup(entry):
-    """
-    Used to find the translated addresses objects on the PA/Panorama.
-    Runs another api call to grab the object and return it's value (the actual ip address)
-    If the NAT rule isn't using an object, we can assume this value is the IP address.
-    Returns a LIST
-    """
-
-    found = False
-
-    for addr_object in mem.address_object_entries:
-        if entry == addr_object.name:
-            if addr_object.type == "ip-netmask":
-                found = True
-                ips = addr_object.value
-            else:
-                found = True
-                ips = ['1.1.1.1']
-                #add_review_entry(addr_object, "not-ip-netmask")
-    if not found:
-        ips = entry
-
-    if isinstance(ips,list):
-        pass # Good (for now)
-    else:
-        ips = [ips]
-
-    return ips # Always returns a list (currently)
-
-
-def addr_obj_check(addrobj):
-
-    ips = address_group_lookup(addrobj)
-    if not ips:
-        ips = address_lookup(addrobj)
-
-    found = False
     for ip in ips:
-        try:
-            tip = address_group_lookup(ip) # One level of nested address groups, just in case..
-            if not tip:
-                tip = ip
-            iprange = ipcalc.Network(tip)
+        iprange = ipcalc.Network(ip)
+        for subnet in settings.EXISTING_TRUST_SUBNET:
+            if subnet in iprange:
+                return True 
 
-            for subnet in settings.EXISTING_TRUST_SUBNET:
-                if subnet in iprange:
-                    found = True
-
-            if found:
-                return True
-            else:
-                pass
-
-        except Exception as e:
-            print("Not supported, call me.")
-            print(e)
-    
     return False
 
 
@@ -303,6 +262,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
 
         panfw = panorama.Panorama(pa_ip, username, password)
+        mem.panfw = panfw
         # Grab the Device Groups and Template Names, we don't need Template names.
         pa = pa_api.api_lib_pa(pa_ip, username, password, pa_type)
         device_group = get_device_group(pa)
@@ -351,6 +311,7 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         start = time.perf_counter()
 
         panfw = firewall.Firewall(pa_ip, username, password)
+        mem.panfw = panfw
 
         # Grab Rules
         mem.address_object_entries = objects.AddressObject.refreshall(panfw,add=False)
