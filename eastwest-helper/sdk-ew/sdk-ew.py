@@ -152,17 +152,13 @@ def addr_obj_check(addrobj):
 def should_be_cloned(old_rule, srcdst, new_rule=None):
 
     def add_tag(tag):
-        if "tag" in new_rule:
-            if isinstance(new_rule["tag"]["member"], list):
-                new_rule["tag"]["member"].append(tag)
-            else:
-                temp = new_rule["tag"]["member"]
-                new_rule["tag"]["member"] = [temp, tag]
-        else:
-            new_rule["tag"] = {"member":tag}
+        if new_rule.tag:
+            if tag not in new_rule.tag:
+                new_rule.tag.append(tag)
 
     # Set variables
     clone = False
+    removed_addrs = []
     if srcdst == "src":
         x_zone_attr = 'fromzone'
         x_addr_attr = 'source'
@@ -174,41 +170,47 @@ def should_be_cloned(old_rule, srcdst, new_rule=None):
     # Begin search
     for zone in getattr(old_rule, x_zone_attr): 
         if zone == settings.EXISTING_TRUST_ZONE:
-            for addrobj in getattr(old_rule, x_addr_attr):
-                if addrobj == "any":
-                    if not mem.singleip:
-                        # Clone/Modify this
-                        clone = True
+            old_zones = getattr(old_rule, x_addr_attr)
+            if new_rule:
+                new_zones = getattr(new_rule, x_zone_attr)
 
-                        if not new_rule:
-                            new_rule = copy.deepcopy(old_rule)
-                        if zone in getattr(new_rule, x_zone_attr):
-                            getattr(new_rule, x_zone_attr).remove(zone)
-                        if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
-                            getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
-
-                    else:
-                        # If searching for only Single-IP, only clone/tag for review 
-                        # the rules relevant to the single IP, ignore 'any' rules
-                        # Idea being you are being very specific here, and probably don't need to close the
-                        # 'any' rules again.
-                        pass
+            if "any" in old_zones:
+                # If searching for only Single-IP, assume the 'any' rules are already cloned.
+                if mem.singleip: # SingleIP: Idea being you are being very specific here, 
+                    # and probably don't need to clone the 'any' rules again.
+                    pass
                 else:
-                    #Check address object against EXISTING_TRUST_SUBNET
+                    # Clone/Modify this
+                    clone = True
+                    if not new_rule:
+                        new_rule = copy.deepcopy(old_rule)
+                        new_zones = getattr(new_rule, x_zone_attr)
+                        
+                    # Remove 'any', add new Zone
+                    if "any" in new_zones:
+                        new_zones.remove("any")
+                    new_zones.append(settings.NEW_EASTWEST_ZONE)
+
+            else:
+                for addrobj in old_zones:
+                    # Is the address object/IP within the EXISTING_TRUST_SUBNET? If so, tag.
                     tag = addr_obj_check(addrobj)
                     if tag:
                         clone = True
                         if not new_rule:
                             new_rule = copy.deepcopy(old_rule)
+                            new_zones = getattr(new_rule, x_zone_attr)
+
                         #add_tag(settings.REVIEW_TAG)
 
-                        if zone in getattr(new_rule, x_zone_attr):
-                            getattr(new_rule, x_zone_attr).remove(zone)
-                        if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
-                            getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
+                        if zone in new_zones:
+                            new_zones.remove(zone)
+                        if settings.NEW_EASTWEST_ZONE not in new_zones:
+                            new_zones.append(settings.NEW_EASTWEST_ZONE)
                         
                     else:
                         # Don't need this address object even if we end up cloning the rule.
+                        removed_addrs.append(addrobj)
                         if new_rule:
                             if addrobj in getattr(new_rule, x_addr_attr):
                                 getattr(new_rule, x_addr_attr).remove(addrobj)
@@ -218,10 +220,15 @@ def should_be_cloned(old_rule, srcdst, new_rule=None):
 
     # Return True/False
     if clone:
-        #add_tag(settings.CLONED_TAG)
+        # Cleanup / Prep for clone
+        add_tag(settings.CLONED_TAG)
+        for addr in removed_addrs:
+            if addr in getattr(new_rule, x_addr_attr):
+                getattr(new_rule, x_addr_attr).remove(addrobj)
         new_rule.name += "-cloned"
         return new_rule
-    return False
+    else:
+        return False
 
 
 def eastwest_addnew_zone(security_rules, panfw, rulebase):
