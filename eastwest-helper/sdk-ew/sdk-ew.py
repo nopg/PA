@@ -64,9 +64,7 @@ from panos import device
 class mem:
     address_object_entries = None
     address_group_entries = None
-    rulebase = None
-    prerulebase = None
-    postrulebase = None
+    singleip = False
 
 
 def address_group_lookup(entry):
@@ -151,7 +149,82 @@ def addr_obj_check(addrobj):
     return False
 
 
-def eastwest_addnew_zone(security_rules, panfw):
+def should_be_cloned(old_rule, srcdst, new_rule=None):
+
+    def add_tag(tag):
+        if "tag" in new_rule:
+            if isinstance(new_rule["tag"]["member"], list):
+                new_rule["tag"]["member"].append(tag)
+            else:
+                temp = new_rule["tag"]["member"]
+                new_rule["tag"]["member"] = [temp, tag]
+        else:
+            new_rule["tag"] = {"member":tag}
+
+    # Set variables
+    clone = False
+    if srcdst == "src":
+        x_zone_attr = 'fromzone'
+        x_addr_attr = 'source'
+    else:   # == "dst"
+        x_zone_attr = 'tozone'
+        x_addr_attr = 'destination'
+
+    # x_ = src or dest
+    # Begin search
+    for zone in getattr(old_rule, x_zone_attr): 
+        if zone == settings.EXISTING_TRUST_ZONE:
+            for addrobj in getattr(old_rule, x_addr_attr):
+                if addrobj == "any":
+                    if not mem.singleip:
+                        # Clone/Modify this
+                        clone = True
+
+                        if not new_rule:
+                            new_rule = copy.deepcopy(old_rule)
+                        if zone in getattr(new_rule, x_zone_attr):
+                            getattr(new_rule, x_zone_attr).remove(zone)
+                        if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
+                            getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
+
+                    else:
+                        # If searching for only Single-IP, only clone/tag for review 
+                        # the rules relevant to the single IP, ignore 'any' rules
+                        # Idea being you are being very specific here, and probably don't need to close the
+                        # 'any' rules again.
+                        pass
+                else:
+                    #Check address object against EXISTING_TRUST_SUBNET
+                    tag = addr_obj_check(addrobj)
+                    if tag:
+                        clone = True
+                        if not new_rule:
+                            new_rule = copy.deepcopy(old_rule)
+                        #add_tag(settings.REVIEW_TAG)
+
+                        if zone in getattr(new_rule, x_zone_attr):
+                            getattr(new_rule, x_zone_attr).remove(zone)
+                        if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
+                            getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
+                        
+                    else:
+                        # Don't need this address object even if we end up cloning the rule.
+                        if new_rule:
+                            if addrobj in getattr(new_rule, x_addr_attr):
+                                getattr(new_rule, x_addr_attr).remove(addrobj)
+        else:
+            # ZONE NOT RELEVANT TO THIS DISCUSSION
+            pass
+
+    # Return True/False
+    if clone:
+        #add_tag(settings.CLONED_TAG)
+        new_rule.name += "-cloned"
+        return new_rule
+    return False
+
+
+def eastwest_addnew_zone(security_rules, panfw, rulebase):
     """
     MODIFY SECURITY RULES
     This accepts a dictionary of rules and 
@@ -160,81 +233,11 @@ def eastwest_addnew_zone(security_rules, panfw):
     :return: modified_rules, new/modified security rule-set
     """
 
-    def should_be_cloned(old_rule, srcdst, new_rule={}):
-        
-        if not new_rule:
-            new_rule = {}
-
-        if srcdst == "src":
-            x_zone_attr = 'fromzone'
-            x_addr_attr = 'source'
-        else: # == "dst"
-            x_zone_attr = 'tozone'
-            x_addr_attr = 'destination'
-
-        clone = False
-        singleip = False
-        for subnet in settings.EXISTING_TRUST_SUBNET:
-            if subnet.endswith("/32"):
-                singleip = True
-
-        # x = src or dest
-        for zone in getattr(old_rule, x_zone_attr): 
-            if zone == settings.EXISTING_TRUST_ZONE:
-                for addrobj in getattr(old_rule, x_addr_attr):
-                    if addrobj == "any":
-                        if not singleip:
-                            # Clone/Modify this
-                            clone = True
-
-                            if not new_rule:
-                                new_rule = copy.deepcopy(old_rule)
-                            if zone in getattr(new_rule, x_zone_attr):
-                                getattr(new_rule, x_zone_attr).remove(zone)
-                            if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
-                                getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
-
-                        else:
-                            # If searching for only Single-IP, only clone/tag for review 
-                            # the rules relevant to the single IP, ignore 'any' rules
-                            # Idea being you are being very specific here, and probably don't need to close the
-                            # 'any' rules again.
-                            pass
-                    else:
-                        #Check address object against EXISTING_TRUST_SUBNET
-                        tag = addr_obj_check(addrobj)
-                        if tag:
-                            clone = True
-                            if not new_rule:
-                                new_rule = copy.deepcopy(old_rule)
-                            #add_tag(settings.REVIEW_TAG)
-
-                            if zone in getattr(new_rule, x_zone_attr):
-                                getattr(new_rule, x_zone_attr).remove(zone)
-                            if settings.NEW_EASTWEST_ZONE not in getattr(new_rule, x_zone_attr):
-                                getattr(new_rule, x_zone_attr).append(settings.NEW_EASTWEST_ZONE)
-                            
-                        else:
-                            # Don't need this address object even if we end up cloning the rule.
-                            if new_rule:
-                                if addrobj in getattr(new_rule, x_addr_attr):
-                                    getattr(new_rule, x_addr_attr).remove(addrobj)
-            else:
-                # ZONE NOT RELEVANT TO THIS DISCUSSION
-                pass
-
-        # Return True/False
-        if clone:
-            #add_tag(settings.CLONED_TAG)
-            new_rule.name += "-cloned"
-            return new_rule
-        return False
-
     print("\nModifying...\n")
 
     for oldrule in security_rules:
-        # START CHECKING
-        new_rule = should_be_cloned(oldrule, "src")#, {})
+        # CHECK SRC, then DST
+        new_rule = should_be_cloned(oldrule, "src")
         if new_rule:
             temp = should_be_cloned(oldrule, "dst", new_rule)
             if temp:
@@ -243,21 +246,13 @@ def eastwest_addnew_zone(security_rules, panfw):
             new_rule = should_be_cloned(oldrule, "dst")
 
         if new_rule:
-            if isinstance(panfw, firewall.Firewall):
-                mem.rulebase.add(new_rule)
-                new_rule.move('before', ref=oldrule.name, update=False)
-            else:
-                mem.postrulebase.add(new_rule)
-                new_rule.move('before', ref=oldrule.name, update=False)
+            rulebase.add(new_rule)
+            new_rule.move('before', ref=oldrule.name, update=False)
+
               
     print("..Done.")
 
-    if isinstance(panfw, firewall.Firewall):
-        #panfw.findall(class_type=policies.Rulebase)[0].children[0].apply_similar()
-        mem.rulebase.children[0].apply_similar()
-    else:
-        #panfw.findall(class_type=policies.PreRulebase)[0].children[0].apply_similar()
-        mem.postrulebase.children[0].apply_similar()
+    rulebase.children[0].apply_similar()
 
     return None
 
@@ -291,6 +286,10 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
     Modify them for intra-zone migration.
     """
 
+    for subnet in settings.EXISTING_TRUST_SUBNET:
+        if subnet.endswith("/32"):
+            mem.singleip = True
+
     if pa_type == "panorama":
 
         # Grab 'start' time
@@ -302,8 +301,6 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         device_group = get_device_group(pa)
         pre_rulebase = policies.PreRulebase()
         post_rulebase = policies.PostRulebase()
-        mem.prerulebase = pre_rulebase
-        mem.postrulebase = post_rulebase
         dg = panorama.DeviceGroup(device_group)
         dg.add(pre_rulebase)
         dg.add(post_rulebase)
@@ -338,9 +335,9 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
 
         # Modify the rules, Pre & Post
         if pre_security_rules:
-            eastwest_addnew_zone(pre_security_rules, panfw)
+            eastwest_addnew_zone(pre_security_rules, panfw, pre_rulebase)
         if post_security_rules:
-            eastwest_addnew_zone(post_security_rules, panfw)
+            eastwest_addnew_zone(post_security_rules, panfw, post_rulebase)
             
     elif pa_type == "pa":
         # Grab 'start' time
@@ -353,13 +350,12 @@ def eastwesthelper(pa_ip, username, password, pa_type, filename=None):
         mem.address_group_entries = objects.AddressGroup.refreshall(panfw,add=False)
 
         rulebase = policies.Rulebase()
-        mem.rulebase = rulebase
         panfw.add(rulebase)
         security_rules = policies.SecurityRule.refreshall(rulebase)
 
         # Modify the rules
         if security_rules:
-            modified_rules = eastwest_addnew_zone(security_rules, panfw)
+            modified_rules = eastwest_addnew_zone(security_rules, panfw, rulebase)
 
     # Finished
     end = time.perf_counter()
