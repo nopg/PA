@@ -183,7 +183,7 @@ def should_be_cloned(old_rule, srcdst, new_rule=None):
         for addr in removed_addrs:
             if addr in getattr(new_rule, x_addr_attr):
                 getattr(new_rule, x_addr_attr).remove(addrobj)
-        new_rule.name += "-cloned"
+        new_rule.name += settings.CLONED_SUFFIX
         return new_rule
     else:
         return False

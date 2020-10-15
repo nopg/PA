@@ -7,6 +7,7 @@ PUSH_CONFIG_TO_PA = True                # Load new ruleset as partial named conf
 
 REVIEW_TAG = "east-west-helper-review"  # Tag name for rules that need to be reviewed (Address Object Name/IP)
 CLONED_TAG = "east-west-helper-cloned"  # Tag name for cloned/any rules
+CLONED_SUFFIX = "-cloned"
 
 EXISTING_TRUST_ZONE = "inside"         # Name of existing 'inside' zone containing subnet(s) to be moved
 NEW_EASTWEST_ZONE = "Terminal-Servers"        # Name of new zone that servers will be moving to

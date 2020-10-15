@@ -321,7 +321,7 @@ def should_be_cloned(sec_rule):
         # Return True/False
         if clone:
             add_tag(settings.CLONED_TAG)
-            new_rule["@name"] = new_rule["@name"] + "-cloned"
+            new_rule["@name"] = new_rule["@name"] + settings.CLONED_SUFFIX
         return clone
     
     new_rule = copy.deepcopy(sec_rule)
