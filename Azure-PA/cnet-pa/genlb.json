@@ -25,6 +25,13 @@
             },
             "defaultValue": "transit-vnet-name"
         },
+        "vNetCIDR": {
+            "type": "string",
+            "metadata": {
+                "description": "Virtual Network CIDR to use"
+            },
+            "defaultValue": "10.0.0.0/16"
+        },
         "managementAddressPrefix": {
             "type": "string",
             "metadata": {
@@ -682,9 +689,7 @@
             "properties": {
                 "addressSpace": {
                     "addressPrefixes": [
-                        "[parameters('managementAddressPrefix')]",
-                        "[parameters('publicAddressPrefix')]",
-                        "[parameters('privateAddressPrefix')]"
+                        "[parameters('vNetCIDR')]"
                     ]
                 },
                 "subnets": [
