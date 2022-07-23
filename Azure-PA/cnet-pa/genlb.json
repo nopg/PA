@@ -670,7 +670,7 @@
                         }
                     }
                 ],
-                "disableBgpRoutePropagation": false
+                "disableBgpRoutePropagation": true
             }
         },
         {
