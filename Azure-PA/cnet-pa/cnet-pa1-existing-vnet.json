@@ -125,7 +125,7 @@
         "fwManagementPublicIPName": "[concat(parameters('paloVMName'),'-mgmt-ip')]",
         "fwUntrustPublicIPName": "[concat(parameters('paloVMName'),'-untrust-ip')]",
         "imagePublisher": "paloaltonetworks",
-        "imageOffer": "vmseries1",
+        "imageOffer": "vmseries-flex",
         "fwNicName": "[concat(parameters('paloVMName'), '-eth')]"
     },
     "resources": [

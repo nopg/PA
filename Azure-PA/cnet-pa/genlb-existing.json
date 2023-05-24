@@ -12,7 +12,8 @@
                 "southcentralus",
                 "westcentralus",
                 "westus",
-                "westus2"
+                "westus2",
+                "westus3"
             ],
             "metadata": {
                 "description": "Region to be used for all resources"
@@ -25,17 +26,10 @@
             },
             "defaultValue": "transit-vnet-name"
         },
-        "vNetCIDR": {
-            "type": "string",
-            "metadata": {
-                "description": "Virtual Network CIDR to use"
-            },
-            "defaultValue": "10.0.0.0/16"
-        },
         "managementAddressPrefix": {
             "type": "string",
             "metadata": {
-                "description": "Management Address Prefix"
+                "description": "Management Subnet Prefix"
             },
             "defaultValue":"10.77.255.0/24"
         },
@@ -63,7 +57,7 @@
         "publicAddressPrefix": {
             "type": "string",
             "metadata": {
-                "description": "Public Address Prefix"
+                "description": "Public Subnet Prefix"
             },
             "defaultValue":"10.77.0.0/24"
         },
@@ -674,83 +668,12 @@
             }
         },
         {
-            "apiVersion": "2016-12-01",
-            "type": "Microsoft.Network/virtualNetworks",
-            "name": "[parameters('vNetName')]",
-            "location": "[parameters('resourceLocation')]",
-            "dependsOn": [
-                "[concat('Microsoft.Network/routeTables/', parameters('privateRouteTableName'))]",
-                "[concat('Microsoft.Network/routeTables/', parameters('managementRouteTableName'))]",
-                "[concat('Microsoft.Network/routeTables/', parameters('publicRouteTableName'))]",
-                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('publicNetworkSecurityGroupName'))]",
-                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('privateNetworkSecurityGroupName'))]",
-                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('managementNetworkSecurityGroupName'))]"
-            ],
-            "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "[parameters('vNetCIDR')]"
-                    ]
-                },
-                "subnets": [
-                    {
-                        "name": "[parameters('managementSubnetName')]",
-                        "properties": {
-                            "addressPrefix": "[parameters('managementAddressPrefix')]",
-                            "routeTable": {
-                                "id": "[resourceId('Microsoft.Network/routeTables/', parameters('managementRouteTableName'))]"
-                            },
-                            "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('managementNetworkSecurityGroupName'))]"
-                            }
-                        }
-                    },
-                    {
-                        "name": "[parameters('publicSubnetName')]",
-                        "properties": {
-                            "addressPrefix": "[parameters('publicAddressPrefix')]",
-                            "routeTable": {
-                                "id": "[resourceId('Microsoft.Network/routeTables/', parameters('publicRouteTableName'))]"
-                            },
-                            "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('publicNetworkSecurityGroupName'))]"
-                            }
-                        }
-                    },
-                    {
-                        "name": "[parameters('privateSubnetName')]",
-                        "properties": {
-                            "addressPrefix": "[parameters('privateAddressPrefix')]",
-                            "routeTable": {
-                                "id": "[resourceId('Microsoft.Network/routeTables/', parameters('privateRouteTableName'))]"
-                            },
-                            "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('privateNetworkSecurityGroupName'))]"
-                            },
-                            "serviceEndpoints": [
-                                {
-                                    "service": "Microsoft.Web",
-                                    "locations": [
-                                        "*"
-                                    ]
-                                }
-                            ],
-                            "delegations": [],
-                            "privateEndpointNetworkPolicies": "Enabled",
-                            "privateLinkServiceNetworkPolicies": "Enabled"
-                        }
-                    }
-                ]
-            }
-        },
-        {
             "name": "[parameters('palo1NIC0')]",
             "type": "Microsoft.Network/networkInterfaces",
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo1ManagementPublicIPName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
+                "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo1ManagementPublicIPName'))]"
             ],
             "properties": {
                 "ipConfigurations": [
@@ -776,7 +699,6 @@
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
                 "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo1UntrustPublicIPName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
                 "[resourceId('Microsoft.Network/loadBalancers/', parameters('externalLBName'))]"
             ],
             "apiVersion": "2015-06-15",
@@ -810,7 +732,6 @@
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
                 "[resourceId('Microsoft.Network/loadBalancers/', parameters('internalLBName'))]"
             ],
             "properties": {
@@ -840,8 +761,7 @@
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo2ManagementPublicIPName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
+                "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo2ManagementPublicIPName'))]"
             ],
             "properties": {
                 "ipConfigurations": [
@@ -867,7 +787,6 @@
             "location": "[parameters('resourceLocation')]",
             "dependsOn": [
                 "[concat('Microsoft.Network/publicIPAddresses/', parameters('palo2UntrustPublicIPName'))]",
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
                 "[resourceId('Microsoft.Network/loadBalancers/', parameters('externalLBName'))]"
             ],
             "apiVersion": "2015-06-15",
@@ -901,7 +820,6 @@
             "location": "[parameters('resourceLocation')]",
             "apiVersion": "2015-06-15",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
                 "[resourceId('Microsoft.Network/loadBalancers/', parameters('internalLBName'))]"
             ],
             "properties": {
@@ -1062,9 +980,6 @@
                 "name": "Standard",
                 "tier": "Regional"
             },
-            "dependsOn": [
-                "[concat('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
-            ],
             "properties": {
                 "frontendIPConfigurations": [
                     {
@@ -1139,7 +1054,6 @@
                 "tier": "Regional"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]",
                 "[resourceId('Microsoft.Network/publicIPAddresses/', parameters('externalLBPublicIPName'))]"
             ],
             "properties": {
@@ -1211,6 +1125,63 @@
                     }
                 ]
             }
-        }
+        },
+        {
+            "apiVersion": "2020-06-01",
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "name": "[concat(parameters('vNetName'), '/' , parameters('managementSubnetName'))]",
+            "location": "[parameters('resourceLocation')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/routeTables/', parameters('managementRouteTableName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('managementNetworkSecurityGroupName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "[parameters('managementAddressPrefix')]",
+                "routeTable": {
+                    "id": "[resourceId('Microsoft.Network/routeTables/', parameters('managementRouteTableName'))]"
+                },
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('managementNetworkSecurityGroupName'))]"
+              }
+            }
+          },
+          {
+            "apiVersion": "2020-06-01",
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "name": "[concat(parameters('vNetName'), '/' , parameters('publicSubnetName'))]",
+            "location": "[parameters('resourceLocation')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/routeTables/', parameters('publicRouteTableName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('publicNetworkSecurityGroupName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "[parameters('publicAddressPrefix')]",
+                "routeTable": {
+                    "id": "[resourceId('Microsoft.Network/routeTables/', parameters('publicRouteTableName'))]"
+                },
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('publicNetworkSecurityGroupName'))]"
+              }
+            }
+          },
+          {
+            "apiVersion": "2020-06-01",
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "name": "[concat(parameters('vNetName'), '/' , parameters('privateSubnetName'))]",
+            "location": "[parameters('resourceLocation')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/routeTables/', parameters('privateRouteTableName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/', parameters('privateNetworkSecurityGroupName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "[parameters('privateAddressPrefix')]",
+                "routeTable": {
+                    "id": "[resourceId('Microsoft.Network/routeTables/', parameters('privateRouteTableName'))]"
+                },
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', parameters('privateNetworkSecurityGroupName'))]"
+              }
+            }
+          }          
     ]
 }

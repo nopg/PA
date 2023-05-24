@@ -239,7 +239,7 @@
             "metadata": {
                 "description": "Use vmseries1 for byol, vmseries-flex for bundles"
             },
-            "defaultValue": "vmseries1"
+            "defaultValue": "vmseries-flex"
         },
         "palo1ManagementPrivateIPAddress": {
             "type": "string",
