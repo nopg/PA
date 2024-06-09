@@ -8,7 +8,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "/Users/glspi/Documents/GitHub/PA/eastwest-helper/sdk-ew/.env/bin/python /Users/glspi/Documents/GitHub/PA/eastwest-helper/sdk-ew/eastwest-helper.py -u glspi -i 192.168.77.254",
+            "program": "/.env/bin/python /Users/glspi/Documents/GitHub/PA/eastwest-helper/sdk-ew/eastwest-helper.py -u nopg -i 192.168.77.254",
             "console": "integratedTerminal"
         }
     ]
